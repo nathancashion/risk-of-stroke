@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Citation Network: "1 in 20,000 adjustments → stroke"</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+  :root {
+    --bg: #fff;
+    --text: #1a1a1a;
+    --text-secondary: #555;
+    --text-muted: #888;
+    --border: #ddd;
+    --axis: #999;
+    --axis-light: #e0e0e0;
+    --cited: #222;
+    --uncited: #c0392b;
+    --phantom-fill: none;
+    --phantom-stroke: #c0392b;
+    --card-bg: #fff;
+    --card-shadow: rgba(0,0,0,0.15);
+    --highlight: #2563eb;
+    --edge-color: #777;
+    --edge-broken: #c0392b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a1a;
+      --text: #e0e0e0;
+      --text-secondary: #aaa;
+      --text-muted: #666;
+      --border: #333;
+      --axis: #666;
+      --axis-light: #2a2a2a;
+      --cited: #ccc;
+      --uncited: #e74c3c;
+      --phantom-stroke: #e74c3c;
+      --card-bg: #252525;
+      --card-shadow: rgba(0,0,0,0.5);
+      --highlight: #60a5fa;
+      --edge-color: #555;
+      --edge-broken: #e74c3c;
+    }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+  }
+  #container { width: 100vw; height: 100vh; position: relative; }
+  svg { width: 100%; height: 100%; }
+
+  #header {
+    position: absolute; top: 0; left: 0; right: 0;
+    padding: 14px 24px 6px;
+    background: linear-gradient(to bottom, var(--bg) 60%, transparent);
+    pointer-events: none; z-index: 10;
+  }
+  #header h1 { font-size: 16px; font-weight: 600; pointer-events: auto; }
+  #header p { font-size: 12px; color: var(--text-secondary); margin-top: 3px; max-width: 800px; }
+
+  #legend {
+    position: absolute; top: 12px; right: 16px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 11px;
+    z-index: 10;
+    box-shadow: 0 2px 8px var(--card-shadow);
+    display: flex; gap: 28px;
+  }
+  .legend-col h3 {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--text-muted); margin-bottom: 6px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; line-height: 1.4; }
+  .legend-symbol { width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+  #tooltip {
+    position: absolute; pointer-events: none;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    max-width: 360px;
+    font-size: 12px; line-height: 1.5;
+    box-shadow: 0 4px 16px var(--card-shadow);
+    opacity: 0; transition: opacity 0.12s;
+    z-index: 20;
+  }
+  #tooltip.visible { opacity: 1; }
+  #tooltip .tt-header { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+  #tooltip .tt-meta { font-size: 10px; color: var(--text-muted); margin-bottom: 6px; }
+  #tooltip .tt-quote {
+    border-left: 3px solid var(--highlight);
+    padding-left: 8px; font-style: italic;
+    color: var(--text-secondary); margin-bottom: 6px; font-size: 11.5px;
+  }
+  #tooltip .tt-quote strong { color: var(--text); font-style: normal; }
+  #tooltip .tt-note { font-size: 10.5px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 5px; margin-top: 3px; }
+
+  #detail {
+    position: absolute; bottom: 16px; right: 16px;
+    width: 340px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px;
+    font-size: 12px; line-height: 1.6;
+    box-shadow: 0 4px 20px var(--card-shadow);
+    z-index: 15; display: none;
+    max-height: 50vh; overflow-y: auto;
+  }
+  #detail.visible { display: block; }
+  #detail .dt-close {
+    position: absolute; top: 8px; right: 12px;
+    cursor: pointer; font-size: 16px; color: var(--text-muted);
+    background: none; border: none;
+  }
+  #detail .dt-close:hover { color: var(--text); }
+  #detail h2 { font-size: 14px; font-weight: 600; margin-bottom: 3px; padding-right: 20px; }
+  #detail .dt-meta { font-size: 11px; color: var(--text-muted); margin-bottom: 10px; }
+  #detail .dt-quote {
+    border-left: 3px solid var(--highlight);
+    padding-left: 10px; font-style: italic;
+    color: var(--text-secondary); margin-bottom: 10px;
+  }
+  #detail .dt-quote strong { color: var(--text); font-style: normal; }
+  #detail .dt-section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin: 10px 0 4px; }
+  #detail .dt-note { font-size: 11px; color: var(--text-secondary); margin-bottom: 8px; }
+  #detail .dt-link-list { list-style: none; padding: 0; }
+  #detail .dt-link-list li {
+    padding: 4px 6px; margin-bottom: 2px; border-radius: 4px;
+    cursor: pointer; font-size: 11px; display: flex; align-items: center; gap: 5px;
+  }
+  #detail .dt-link-list li:hover { background: var(--axis-light); }
+  #detail a.dt-url { font-size: 11px; color: var(--highlight); text-decoration: none; word-break: break-all; }
+  #detail a.dt-url:hover { text-decoration: underline; }
+
+  #instructions {
+    position: absolute; bottom: 8px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px; color: var(--text-muted); z-index: 10;
+  }
+</style>
+</head>
+<body>
+<div id="container">
+  <svg></svg>
+  <div id="header">
+    <h1>Citation network for the claim that "1 in 20,000 adjustments lead to stroke"</h1>
+    <p>Each node is a publication that states the claim. Arrows point from the citing paper to its cited source. Red = claim made without a valid reference. Hover for details; click to explore.</p>
+  </div>
+  <div id="legend">
+    <div class="legend-col">
+      <h3>Publication type</h3>
+      <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="var(--cited)" /></svg></div> Case report</div>
+      <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><rect x="1" y="1" width="10" height="10" fill="var(--cited)" /></svg></div> Review or systematic review</div>
+      <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><polygon points="6,1 11,11 1,11" fill="var(--cited)" /></svg></div> Original research</div>
+      <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><polygon points="6,0 8,4 12,4 9,7 10,12 6,9 2,12 3,7 0,4 4,4" fill="var(--cited)" /></svg></div> Reference work</div>
+      <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><polygon points="6,1 9,5 6,9 3,5" fill="var(--cited)" /></svg></div> Book or textbook chapter</div>
+      <div class="legend-item"><div class="legend-symbol"><svg width="14" height="14"><line x1="2" y1="2" x2="12" y2="12" stroke="var(--cited)" stroke-width="2"/><line x1="12" y1="2" x2="2" y2="12" stroke="var(--cited)" stroke-width="2"/></svg></div> News or popular press</div>
+    </div>
+    <div class="legend-col">
+      <h3>Citation status</h3>
+      <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="var(--cited)" /></svg></div> Claim made with a reference</div>
+      <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="var(--uncited)" /></svg></div> Claim made without a reference</div>
+      <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="none" stroke="var(--uncited)" stroke-width="1.5" stroke-dasharray="2,2"/></svg></div> Phantom source (cited, lacks claim)</div>
+    </div>
+  </div>
+  <div id="tooltip"></div>
+  <div id="detail">
+    <button class="dt-close" onclick="closeDetail()">&times;</button>
+    <div id="detail-content"></div>
+  </div>
+  <div id="instructions">Scroll to zoom · Drag to pan · Click a node to explore</div>
+</div>
+
+<script>
+// ============================================================
+// DATA
+// pubType: "case_report" | "review" | "original" | "reference" | "book" | "news"
+// type: "original" | "cites_source" | "no_citation" | "phantom"
+// ============================================================
+const nodes = [
+  {
+    id: "haynes1994", label: "Haynes", year: 1994,
+    journal: "Chiropractic Journal of Australia",
+    fullCite: "Haynes, M. J. (1994). Stroke following cervical manipulation in Perth. Chiropractic Journal of Australia, 24, 42–46.",
+    quote: "perhaps fewer than <strong>five cases of manipulation-related stroke per 100,000 patients</strong>",
+    note: "5/100,000 = 1/20,000. Original data source, based on stroke incidence in Perth, Australia relative to chiropractic utilization.",
+    type: "original", pubType: "original", cites: null, url: null
+  },
+  {
+    id: "assendelft1996", label: "Assendelft et al.", year: 1996,
+    journal: "The Journal of Family Practice",
+    fullCite: "Assendelft, W. J., et al. (1996). Complications of spinal manipulation. J Fam Pract, 42(5), 475–480.",
+    quote: "He concluded that the incidence was less than <strong>5 per 100,000 patients who had received neck manipulation.</strong>",
+    note: "Accurately cites Haynes. Includes '1 per 20,000' as the lower bound.",
+    type: "cites_source", pubType: "review", cites: "haynes1994", url: null
+  },
+  {
+    id: "vickers1999", label: "Vickers & Zollman", year: 1999,
+    journal: "BMJ",
+    fullCite: "Vickers, A., & Zollman, C. (1999). The manipulative therapies. BMJ, 319(7218), 1176–1179.",
+    quote: "Estimates of [stroke] vary widely, ranging from <strong>1 in 20,000 patients</strong> undergoing cervical manipulation to 1 per million procedures.",
+    note: "Textbook chapter. No reference provided for the 1 in 20,000 figure.",
+    type: "no_citation", pubType: "book", cites: null,
+    url: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1116959/"
+  },
+  {
+    id: "saeed2000", label: "Saeed et al.", year: 2000,
+    journal: "Canadian Journal of Neurological Sciences",
+    fullCite: "Saeed, A. B., et al. (2000). Vertebral Artery Dissection: Warning Symptoms. CJNS, 27(4), 292–296.",
+    quote: null,
+    note: "Cited by Jones (2015) for '1 in 20,000' but contains NO risk estimate. Phantom source.",
+    type: "phantom", pubType: "case_report", cites: null,
+    url: "https://doi.org/10.1017/S0317167100001025"
+  },
+  {
+    id: "rothwell2001", label: "Rothwell et al.", year: 2001,
+    journal: "Stroke",
+    fullCite: "Rothwell, D. M., et al. (2001). Chiropractic manipulation and stroke. Stroke, 32(5), 1054–1060.",
+    quote: "the risk of VBA after cervical manipulation to be between <strong>1 in 1.3 million to 1 in 400,000</strong>",
+    note: "Does NOT cite '1 in 20,000'. Cites Assendelft for a different range.",
+    type: "cites_source", pubType: "original", cites: "assendelft1996",
+    url: "https://doi.org/10.1161/01.str.32.5.1054"
+  },
+  {
+    id: "mann2001", label: "Mann & Refshauge", year: 2001,
+    journal: "Australian Journal of Physiotherapy",
+    fullCite: "Mann, T., & Refshauge, K. M. (2001). Causes of complications from cervical spine manipulation. Aus J Physio, 47(4), 255–266.",
+    quote: "from <strong>one in 20,000 patients</strong> receiving cervical manipulation to one per million manipulative procedures (Vickers & Zollman, 1999)",
+    note: "Cites Vickers & Zollman (1999) for the 1 in 20,000.",
+    type: "cites_source", pubType: "review", cites: "vickers1999",
+    url: "https://doi.org/10.1016/S0004-9514(14)60273-7"
+  },
+  {
+    id: "meeker2002", label: "Meeker & Haldeman", year: 2002,
+    journal: "Annals of Internal Medicine",
+    fullCite: "Meeker, W. C., & Haldeman, S. (2002). Chiropractic: a profession at the crossroads. Ann Intern Med, 136(3), 216–227.",
+    quote: "risk for a cerebrovascular accident… from <strong>1 in 400,000</strong> to between <strong>3 and 6 per 10 million</strong>",
+    note: "Does NOT cite '1 in 20,000'. Referenced by Fusco (2011).",
+    type: "cites_source", pubType: "review", cites: null,
+    url: "https://doi.org/10.7326/0003-4819-136-3-200202050-00010"
+  },
+  {
+    id: "gouveia2009", label: "Gouveia et al.", year: 2009,
+    journal: "Spine",
+    fullCite: "Gouveia, L. O., et al. (2009). Safety of chiropractic interventions. Spine, 34(11), E405-13.",
+    quote: "varying from <strong>5 strokes/100,000 manipulations</strong> to 1.46/10,000,000",
+    note: "Cites Haynes (1994) directly. The 5/100,000 = 1/20,000.",
+    type: "cites_source", pubType: "review", cites: "haynes1994",
+    url: "https://doi.org/10.1097/BRS.0b013e3181a16d63"
+  },
+  {
+    id: "fusco2011", label: "Fusco & Harrigan", year: 2011,
+    journal: "Neurosurgery",
+    fullCite: "Fusco, M. R., & Harrigan, M. R. (2011). Cerebrovascular Dissections—A Review. Neurosurgery, 68(1), 242.",
+    quote: "associated with <strong>1/10,000[?]</strong> to 1/2,000,000 cervical manipulations",
+    note: "Cites Assendelft, Rothwell, Meeker. The '1/10,000' doesn't match any — possible transcription error.",
+    type: "cites_source", pubType: "review", cites: "assendelft1996",
+    url: "https://doi.org/10.1227/NEU.0b013e3182012323"
+  },
+  {
+    id: "engelter2013", label: "Engelter et al.", year: 2013,
+    journal: "Neurology",
+    fullCite: "Engelter, S. T., et al. (2013). Cervical artery dissection: trauma and other potential mechanical trigger events. Neurology, 80(21), 1950–1957.",
+    quote: "1 in 2 million to <strong>5 in 100,000 patients</strong>",
+    note: "Cites Gouveia (2009), which cites Haynes (1994). Two intermediaries.",
+    type: "cites_source", pubType: "original", cites: "gouveia2009",
+    url: "https://doi.org/10.1212/WNL.0b013e318293e2eb"
+  },
+  {
+    id: "jones2015", label: "Jones et al.", year: 2015,
+    journal: "Baylor Univ. Med Center Proceedings",
+    fullCite: "Jones, J., et al. (2015). Vertebral artery dissection after a chiropractor neck manipulation. Proc Baylor, 28(1), 88–90.",
+    quote: "<strong>1 in 20,000 spinal manipulations</strong> results in a vertebral artery aneurysm/dissection",
+    note: "Cites Saeed (2000), but Saeed provides NO risk estimate. Misattribution.",
+    type: "cites_source", pubType: "case_report", cites: "saeed2000",
+    url: "https://doi.org/10.1080/08998280.2015.11929202"
+  },
+  {
+    id: "paul2020", label: "Paul & Kumar", year: 2020,
+    journal: "Int J Contemporary Pediatrics",
+    fullCite: "Paul, A. J., & Kumar, R. (2020). A rare case of ischaemic stroke… IJCP, 7(2), 445–448.",
+    quote: "An average of <strong>1 in 20,000 neck manipulations</strong> result in ischemic infarct",
+    note: "No references given for this claim.",
+    type: "no_citation", pubType: "case_report", cites: null,
+    url: "https://doi.org/10.18203/2349-3291.ijcp20200127"
+  },
+  {
+    id: "xia2021", label: "Xia et al.", year: 2021,
+    journal: "Stroke (conference abstract)",
+    fullCite: "Xia, C., et al. (2021). Abstract: Chiropractor Manipulation Leading to Bilateral VAD. Stroke.",
+    quote: "<strong>1 in 20,000 spinal manipulation</strong> results in vertebral artery aneurysm/dissection.",
+    note: "Conference abstract for a case report. No citation. Cannot provide a population-level estimate.",
+    type: "no_citation", pubType: "case_report", cites: null, url: null
+  },
+  {
+    id: "piening2022", label: "Piening et al.", year: 2022,
+    journal: "SAGE Open Medical Case Reports",
+    fullCite: "Piening, K., et al. (2022). Internal carotid artery dissection following self-manipulation. SAGE Open Med Case Rep, 10.",
+    quote: "incidence stated <strong>between 1 in 20,000 and 1 in a million</strong> spinal manipulations",
+    note: "Cites Vickers & Zollman (1999), a textbook chapter with no reference.",
+    type: "cites_source", pubType: "case_report", cites: "vickers1999",
+    url: "https://doi.org/10.1177/2050313X221122451"
+  },
+  {
+    id: "britt2023", label: "Britt & Agarwal", year: 2023,
+    journal: "StatPearls",
+    fullCite: "Britt, T. B., & Agarwal, S. (2023). Vertebral Artery Dissection. In StatPearls.",
+    quote: "<strong>1 in 20,000 cervical spine manipulations</strong> cause a stroke.",
+    note: "Listed references don't mention stroke risk. Claim since removed from article.",
+    type: "no_citation", pubType: "reference", cites: null,
+    url: "https://www.ncbi.nlm.nih.gov/books/NBK441827/"
+  },
+  {
+    id: "iwamoto2024", label: "Iwamoto et al.", year: 2024,
+    journal: "Cureus",
+    fullCite: "Iwamoto, S., et al. (2024). Twists and Turns: Bilateral VAD. Cureus, 16(2).",
+    quote: "<strong>one in 20,000 spinal manipulations</strong> has resulted in VADs.",
+    note: "Cites Xia (2021), a conference abstract with no citation of its own.",
+    type: "cites_source", pubType: "case_report", cites: "xia2021",
+    url: "https://doi.org/10.7759/cureus.54990"
+  },
+  {
+    id: "arnoldratliff2025", label: "Arnold-Ratliff", year: 2025,
+    journal: "The Cut (New York Magazine)",
+    fullCite: "Arnold-Ratliff, K. (2025). The Truth About Getting Your Neck Cracked. The Cut.",
+    quote: "<strong>1 in 20,000 chiropractic neck adjustments</strong> results in an injury to vertebral arteries.",
+    note: "Popular press. Cites Xia (2021), calling it 'a study in the journal Stroke.'",
+    type: "cites_source", pubType: "news", cites: "xia2021",
+    url: "https://www.thecut.com/article/neck-cracking-chiropractic-surgery-spine.html"
+  }
+];
+
+const extraEdges = [
+  { source: "fusco2011", target: "rothwell2001", type: "cites" },
+  { source: "fusco2011", target: "meeker2002", type: "cites" }
+];
+
+// ============================================================
+// BUILD
+// ============================================================
+const edges = [];
+nodes.forEach(n => {
+  if (n.cites) {
+    const target = nodes.find(t => t.id === n.cites);
+    edges.push({ source: n.id, target: n.cites, type: target?.type === "phantom" ? "misattributed" : "cites" });
+  }
+});
+extraEdges.forEach(e => edges.push(e));
+
+const nodeMap = {};
+nodes.forEach(n => nodeMap[n.id] = n);
+
+const width = window.innerWidth;
+const height = window.innerHeight;
+const margin = { top: 90, bottom: 50, left: 60, right: 60 };
+
+const svg = d3.select("svg");
+const g = svg.append("g");
+
+const zoom = d3.zoom().scaleExtent([0.4, 4])
+  .on("zoom", e => g.attr("transform", e.transform));
+svg.call(zoom);
+
+// Defs: arrow markers
+const defs = svg.append("defs");
+[["arr-cited","var(--edge-color)"],["arr-uncited","var(--edge-broken)"]].forEach(([id,c]) => {
+  defs.append("marker").attr("id",id)
+    .attr("viewBox","0 0 8 6").attr("refX",8).attr("refY",3)
+    .attr("markerWidth",7).attr("markerHeight",5).attr("orient","auto")
+    .append("path").attr("d","M0 0 L8 3 L0 6z").attr("fill",c);
+});
+
+// X scale: years
+const allYears = nodes.map(n => n.year);
+const minYear = Math.min(...allYears) - 1;
+const maxYear = Math.max(...allYears) + 1;
+const xScale = d3.scaleLinear().domain([minYear, maxYear]).range([margin.left, width - margin.right]);
+
+// Y layout: manual lane assignments based on citation chains
+// Lanes spread nodes vertically so related chains sit together
+// and arrows between them have room to curve clearly.
+//
+// Lane map (top to bottom):
+//   1: Uncited repeaters citing Xia (Arnold-Ratliff, Iwamoto)
+//   2: Xia, Paul, Britt — dead-end no-citation nodes
+//   3: Jones → Saeed chain (isolated misattribution)
+//   4: Vickers chain (Mann, Piening cite Vickers)
+//   5: Meeker (cited by Fusco but itself a dead end)
+//   6: Fusco, Engelter — intermediate reviewers
+//   7: Rothwell → Assendelft, Gouveia → Haynes chain
+//   8: Haynes (original source, bottom)
+
+const laneY = {};
+const laneSpacing = 100;
+const topY = margin.top + 30;
+
+// Assign each node a lane
+const laneDefs = {
+  arnoldratliff2025: 1,
+  iwamoto2024: 1,
+  xia2021: 2,
+  paul2020: 2,
+  britt2023: 2,
+  jones2015: 3,
+  saeed2000: 3,
+  piening2022: 4,
+  mann2001: 4,
+  vickers1999: 4.5,
+  meeker2002: 5,
+  engelter2013: 6,
+  fusco2011: 6,
+  rothwell2001: 7,
+  gouveia2009: 7,
+  assendelft1996: 7.5,
+  haynes1994: 8.5,
+};
+
+nodes.forEach(n => {
+  n.x = xScale(n.year);
+  n.y = topY + (laneDefs[n.id] || 4) * laneSpacing;
+});
+
+// Draw axis
+const maxNodeY = Math.max(...nodes.map(n => n.y)) + 40;
+const axisY = maxNodeY + 30;
+const tickYears = d3.range(Math.ceil(minYear / 2) * 2, maxYear + 1, 2);
+g.append("line")
+  .attr("x1", margin.left).attr("x2", width - margin.right)
+  .attr("y1", axisY).attr("y2", axisY)
+  .attr("stroke", "var(--axis)").attr("stroke-width", 1);
+
+tickYears.forEach(yr => {
+  const tx = xScale(yr);
+  g.append("line").attr("x1", tx).attr("x2", tx)
+    .attr("y1", margin.top - 10).attr("y2", axisY)
+    .attr("stroke", "var(--axis-light)").attr("stroke-width", 0.5);
+  g.append("text").attr("x", tx).attr("y", axisY + 16)
+    .attr("text-anchor", "middle").attr("font-size", "12px")
+    .attr("fill", "var(--axis)").attr("font-weight", 500)
+    .text(yr);
+});
+
+// Draw edges as quadratic curves
+function edgeMarker(d) {
+  const s = nodeMap[d.source], t = nodeMap[d.target];
+  if (!s || !t) return "url(#arr-cited)";
+  return (s.type === "no_citation" || d.type === "misattributed") ? "url(#arr-uncited)" : "url(#arr-cited)";
+}
+function edgeStroke(d) {
+  return d.type === "misattributed" ? "var(--edge-broken)" : "var(--edge-color)";
+}
+
+const linkG = g.append("g");
+const link = linkG.selectAll("path").data(edges).join("path")
+  .attr("d", d => {
+    const s = nodeMap[d.source], t = nodeMap[d.target];
+    if (!s || !t) return "";
+    const dx = t.x - s.x, dy = t.y - s.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    // Offset control point perpendicular to the line to create a curve
+    const mx = (s.x + t.x) / 2, my = (s.y + t.y) / 2;
+    const nx = -dy / dist, ny = dx / dist;
+    const curvature = Math.min(dist * 0.25, 60);
+    const cx = mx + nx * curvature, cy = my + ny * curvature;
+    return `M${s.x},${s.y} Q${cx},${cy} ${t.x},${t.y}`;
+  })
+  .attr("fill", "none")
+  .attr("stroke", d => edgeStroke(d))
+  .attr("stroke-width", 1.2)
+  .attr("stroke-dasharray", d => d.type === "misattributed" ? "5,3" : null)
+  .attr("marker-end", d => edgeMarker(d));
+
+// Node shape function
+function drawShape(sel) {
+  sel.each(function(d) {
+    const el = d3.select(this);
+    const fill = (d.type === "no_citation" || d.type === "phantom") ? "var(--uncited)" : "var(--cited)";
+    const r = 7;
+    if (d.type === "phantom") {
+      // Dashed circle, hollow
+      el.append("circle").attr("r", r)
+        .attr("fill", "none").attr("stroke", "var(--phantom-stroke)")
+        .attr("stroke-width", 1.5).attr("stroke-dasharray", "3,2");
+    } else if (d.pubType === "case_report") {
+      el.append("circle").attr("r", r).attr("fill", fill);
+    } else if (d.pubType === "review") {
+      el.append("rect").attr("x", -r).attr("y", -r).attr("width", r*2).attr("height", r*2).attr("fill", fill);
+    } else if (d.pubType === "original") {
+      el.append("polygon").attr("points", `0,${-r} ${r},${r} ${-r},${r}`).attr("fill", fill);
+    } else if (d.pubType === "reference") {
+      // Star shape
+      const pts = [];
+      for (let i = 0; i < 5; i++) {
+        const aOuter = (i * 72 - 90) * Math.PI / 180;
+        const aInner = ((i * 72) + 36 - 90) * Math.PI / 180;
+        pts.push(`${Math.cos(aOuter)*r},${Math.sin(aOuter)*r}`);
+        pts.push(`${Math.cos(aInner)*r*0.45},${Math.sin(aInner)*r*0.45}`);
+      }
+      el.append("polygon").attr("points", pts.join(" ")).attr("fill", fill);
+    } else if (d.pubType === "book") {
+      el.append("polygon").attr("points", `0,${-r} ${r},0 0,${r} ${-r},0`).attr("fill", fill);
+    } else if (d.pubType === "news") {
+      // X mark
+      el.append("line").attr("x1",-r+1).attr("y1",-r+1).attr("x2",r-1).attr("y2",r-1)
+        .attr("stroke", fill).attr("stroke-width", 2.5).attr("stroke-linecap", "round");
+      el.append("line").attr("x1",r-1).attr("y1",-r+1).attr("x2",-r+1).attr("y2",r-1)
+        .attr("stroke", fill).attr("stroke-width", 2.5).attr("stroke-linecap", "round");
+    }
+  });
+}
+
+const node = g.append("g").selectAll("g").data(nodes).join("g")
+  .attr("transform", d => `translate(${d.x},${d.y})`)
+  .attr("cursor", "pointer");
+
+node.call(drawShape);
+
+// Invisible larger hit area
+node.append("circle").attr("r", 14).attr("fill", "transparent");
+
+// Tooltip
+const tooltip = d3.select("#tooltip");
+node.on("mouseenter", (event, d) => {
+  const statusLabel = { original: "Original Data", cites_source: "Cites Source", no_citation: "No Citation Given", phantom: "Phantom Source" };
+  let html = `<div class="tt-header">${d.label} (${d.year})</div>`;
+  html += `<div class="tt-meta">${d.journal} · ${statusLabel[d.type]}</div>`;
+  if (d.quote) html += `<div class="tt-quote">${d.quote}</div>`;
+  if (d.note) html += `<div class="tt-note">${d.note}</div>`;
+  tooltip.html(html).classed("visible", true);
+})
+.on("mousemove", event => {
+  const [mx, my] = d3.pointer(event, document.body);
+  const tw = tooltip.node().offsetWidth, th = tooltip.node().offsetHeight;
+  let tx = mx + 14, ty = my - th / 2;
+  if (tx + tw > width - 10) tx = mx - tw - 14;
+  if (ty < 5) ty = 5;
+  if (ty + th > height - 5) ty = height - th - 5;
+  tooltip.style("left", tx+"px").style("top", ty+"px");
+})
+.on("mouseleave", () => tooltip.classed("visible", false));
+
+// Click → detail
+node.on("click", (event, d) => { event.stopPropagation(); showDetail(d); });
+svg.on("click", () => closeDetail());
+
+function showDetail(d) {
+  const statusLabel = { original: "Original Data", cites_source: "Cites Source", no_citation: "No Citation Given", phantom: "Phantom Source" };
+  let html = `<h2>${d.label} (${d.year})</h2>`;
+  html += `<div class="dt-meta">${d.fullCite}</div>`;
+  if (d.url) html += `<div style="margin-bottom:8px"><a class="dt-url" href="${d.url}" target="_blank">View source</a></div>`;
+  if (d.quote) html += `<div class="dt-quote">"${d.quote}"</div>`;
+  else if (d.type === "phantom") html += `<div class="dt-quote" style="border-color:var(--uncited)"><em>This source contains no risk estimate.</em></div>`;
+  if (d.note) html += `<div class="dt-note">${d.note}</div>`;
+  const out = edges.filter(e => e.source === d.id);
+  if (out.length) {
+    html += `<div class="dt-section-title">Cites for this claim</div><ul class="dt-link-list">`;
+    out.forEach(e => {
+      const t = nodeMap[e.target];
+      const tag = e.type === "misattributed" ? " (misattributed)" : "";
+      html += `<li onclick="showDetail(nodes.find(n=>n.id==='${t.id}'))">→ ${t.label} (${t.year})${tag}</li>`;
+    });
+    html += `</ul>`;
+  }
+  const inc = edges.filter(e => e.target === d.id);
+  if (inc.length) {
+    html += `<div class="dt-section-title">Cited by</div><ul class="dt-link-list">`;
+    inc.forEach(e => {
+      const s = nodeMap[e.source];
+      html += `<li onclick="showDetail(nodes.find(n=>n.id==='${s.id}'))">← ${s.label} (${s.year})</li>`;
+    });
+    html += `</ul>`;
+  }
+  d3.select("#detail-content").html(html);
+  d3.select("#detail").classed("visible", true);
+  highlightNode(d);
+}
+
+function closeDetail() {
+  d3.select("#detail").classed("visible", false);
+  resetHighlight();
+}
+
+function highlightNode(d) {
+  const connected = new Set([d.id]);
+  edges.forEach(e => { if (e.source === d.id) connected.add(e.target); if (e.target === d.id) connected.add(e.source); });
+  node.attr("opacity", n => connected.has(n.id) ? 1 : 0.12);
+  link.attr("opacity", e => (e.source === d.id || e.target === d.id) ? 1 : 0.05);
+}
+
+function resetHighlight() {
+  node.attr("opacity", 1);
+  link.attr("opacity", 1);
+}
+
+window.showDetail = showDetail;
+window.nodes = nodes;
+window.closeDetail = closeDetail;
+</script>
+</body>
+</html>
