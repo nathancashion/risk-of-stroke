@@ -102,44 +102,13 @@
   }
   #tooltip .tt-quote strong { color: var(--text); font-style: normal; }
   #tooltip .tt-note { font-size: 10.5px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 5px; margin-top: 3px; }
-
-  #detail {
-    position: absolute; bottom: 16px; right: 16px;
-    width: 340px;
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 18px;
-    font-size: 12px; line-height: 1.6;
-    box-shadow: 0 4px 20px var(--card-shadow);
-    z-index: 15; display: none;
-    max-height: 50vh; overflow-y: auto;
-  }
-  #detail.visible { display: block; }
-  #detail .dt-close {
-    position: absolute; top: 8px; right: 12px;
-    cursor: pointer; font-size: 16px; color: var(--text-muted);
-    background: none; border: none;
-  }
-  #detail .dt-close:hover { color: var(--text); }
-  #detail h2 { font-size: 14px; font-weight: 600; margin-bottom: 3px; padding-right: 20px; }
-  #detail .dt-meta { font-size: 11px; color: var(--text-muted); margin-bottom: 10px; }
-  #detail .dt-quote {
-    border-left: 3px solid var(--highlight);
-    padding-left: 10px; font-style: italic;
-    color: var(--text-secondary); margin-bottom: 10px;
-  }
-  #detail .dt-quote strong { color: var(--text); font-style: normal; }
-  #detail .dt-section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin: 10px 0 4px; }
-  #detail .dt-note { font-size: 11px; color: var(--text-secondary); margin-bottom: 8px; }
-  #detail .dt-link-list { list-style: none; padding: 0; }
-  #detail .dt-link-list li {
-    padding: 4px 6px; margin-bottom: 2px; border-radius: 4px;
-    cursor: pointer; font-size: 11px; display: flex; align-items: center; gap: 5px;
-  }
-  #detail .dt-link-list li:hover { background: var(--axis-light); }
-  #detail a.dt-url { font-size: 11px; color: var(--highlight); text-decoration: none; word-break: break-all; }
-  #detail a.dt-url:hover { text-decoration: underline; }
+  #tooltip.pinned { pointer-events: auto; max-width: 380px; max-height: 50vh; overflow-y: auto; }
+  #tooltip .tt-section { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin: 10px 0 4px; }
+  #tooltip .tt-links { list-style: none; padding: 0; }
+  #tooltip .tt-links li { padding: 4px 6px; margin-bottom: 2px; border-radius: 4px; cursor: pointer; font-size: 11px; display: flex; align-items: center; gap: 5px; }
+  #tooltip .tt-links li:hover { background: var(--axis-light); }
+  #tooltip a.tt-url { font-size: 11px; color: var(--highlight); text-decoration: none; word-break: break-all; }
+  #tooltip a.tt-url:hover { text-decoration: underline; }
 
   #instructions {
     position: absolute; bottom: 8px; left: 50%;
@@ -173,10 +142,6 @@
     </div>
   </div>
   <div id="tooltip"></div>
-  <div id="detail">
-    <button class="dt-close" onclick="closeDetail()">&times;</button>
-    <div id="detail-content"></div>
-  </div>
   <div id="instructions">Scroll to zoom · Drag to pan · Click a node to explore</div>
 </div>
 
@@ -240,15 +205,6 @@ const nodes = [
     url: "https://doi.org/10.1016/S0004-9514(14)60273-7"
   },
   {
-    id: "meeker2002", label: "Meeker & Haldeman", year: 2002,
-    journal: "Annals of Internal Medicine",
-    fullCite: "Meeker, W. C., & Haldeman, S. (2002). Chiropractic: a profession at the crossroads. Ann Intern Med, 136(3), 216–227.",
-    quote: "risk for a cerebrovascular accident… from <strong>1 in 400,000</strong> to between <strong>3 and 6 per 10 million</strong>",
-    note: "Does NOT cite '1 in 20,000'. Referenced by Fusco (2011).",
-    type: "cites_source", pubType: "review", cites: null,
-    url: "https://doi.org/10.7326/0003-4819-136-3-200202050-00010"
-  },
-  {
     id: "gouveia2009", label: "Gouveia et al.", year: 2009,
     journal: "Spine",
     fullCite: "Gouveia, L. O., et al. (2009). Safety of chiropractic interventions. Spine, 34(11), E405-13.",
@@ -262,7 +218,7 @@ const nodes = [
     journal: "Neurosurgery",
     fullCite: "Fusco, M. R., & Harrigan, M. R. (2011). Cerebrovascular Dissections—A Review. Neurosurgery, 68(1), 242.",
     quote: "associated with <strong>1/10,000[?]</strong> to 1/2,000,000 cervical manipulations",
-    note: "Cites Assendelft, Rothwell, Meeker. The '1/10,000' doesn't match any — possible transcription error.",
+    note: "Cites Assendelft and Rothwell. The '1/10,000' doesn't match either — possible transcription error.",
     type: "cites_source", pubType: "review", cites: "assendelft1996",
     url: "https://doi.org/10.1227/NEU.0b013e3182012323"
   },
@@ -340,8 +296,7 @@ const nodes = [
 ];
 
 const extraEdges = [
-  { source: "fusco2011", target: "rothwell2001", type: "cites" },
-  { source: "fusco2011", target: "meeker2002", type: "cites" }
+  { source: "fusco2011", target: "rothwell2001", type: "cites" }
 ];
 
 // ============================================================
@@ -367,7 +322,10 @@ const svg = d3.select("svg");
 const g = svg.append("g");
 
 const zoom = d3.zoom().scaleExtent([0.4, 4])
-  .on("zoom", e => g.attr("transform", e.transform));
+  .on("zoom", e => {
+    g.attr("transform", e.transform);
+    if (pinnedNode) positionTooltipAtNode(pinnedNode);
+  });
 svg.call(zoom);
 
 // Defs: arrow markers
@@ -394,10 +352,9 @@ const xScale = d3.scaleLinear().domain([minYear, maxYear]).range([margin.left, w
 //   2: Xia, Paul, Britt — dead-end no-citation nodes
 //   3: Jones → Saeed chain (isolated misattribution)
 //   4: Vickers chain (Mann, Piening cite Vickers)
-//   5: Meeker (cited by Fusco but itself a dead end)
-//   6: Fusco, Engelter — intermediate reviewers
-//   7: Rothwell → Assendelft, Gouveia → Haynes chain
-//   8: Haynes (original source, bottom)
+//   5: Fusco, Engelter — intermediate reviewers
+//   6: Rothwell → Assendelft, Gouveia → Haynes chain
+//   7: Haynes (original source, bottom)
 
 const laneY = {};
 const laneSpacing = 100;
@@ -415,13 +372,12 @@ const laneDefs = {
   piening2022: 4,
   mann2001: 4,
   vickers1999: 4.5,
-  meeker2002: 5,
-  engelter2013: 6,
-  fusco2011: 6,
-  rothwell2001: 7,
-  gouveia2009: 7,
-  assendelft1996: 7.5,
-  haynes1994: 8.5,
+  engelter2013: 5,
+  fusco2011: 5,
+  rothwell2001: 6,
+  gouveia2009: 6,
+  assendelft1996: 6.5,
+  haynes1994: 7.5,
 };
 
 nodes.forEach(n => {
@@ -527,17 +483,67 @@ node.call(drawShape);
 // Invisible larger hit area
 node.append("circle").attr("r", 14).attr("fill", "transparent");
 
-// Tooltip
+// Popup state
+let pinnedNode = null;
+const visited = new Set();
 const tooltip = d3.select("#tooltip");
-node.on("mouseenter", (event, d) => {
+
+function tooltipContent(d, expanded) {
   const statusLabel = { original: "Original Data", cites_source: "Cites Source", no_citation: "No Citation Given", phantom: "Phantom Source" };
   let html = `<div class="tt-header">${d.label} (${d.year})</div>`;
-  html += `<div class="tt-meta">${d.journal} · ${statusLabel[d.type]}</div>`;
+  if (expanded) {
+    html += `<div class="tt-meta">${d.fullCite}</div>`;
+    if (d.url) html += `<div style="margin-bottom:6px"><a class="tt-url" href="${d.url}" target="_blank">View source ↗</a></div>`;
+  } else {
+    html += `<div class="tt-meta">${d.journal} · ${statusLabel[d.type]}</div>`;
+  }
   if (d.quote) html += `<div class="tt-quote">${d.quote}</div>`;
+  else if (d.type === "phantom" && expanded) html += `<div class="tt-quote" style="border-color:var(--uncited)"><em>This source contains no risk estimate.</em></div>`;
   if (d.note) html += `<div class="tt-note">${d.note}</div>`;
-  tooltip.html(html).classed("visible", true);
+  if (expanded) {
+    const out = edges.filter(e => e.source === d.id);
+    if (out.length) {
+      html += `<div class="tt-section">Cites for this claim</div><ul class="tt-links">`;
+      out.forEach(e => {
+        const t = nodeMap[e.target];
+        const tag = e.type === "misattributed" ? " (misattributed)" : "";
+        html += `<li onclick="clickNode('${t.id}')">→ ${t.label} (${t.year})${tag}</li>`;
+      });
+      html += `</ul>`;
+    }
+    const inc = edges.filter(e => e.target === d.id);
+    if (inc.length) {
+      html += `<div class="tt-section">Cited by</div><ul class="tt-links">`;
+      inc.forEach(e => {
+        const s = nodeMap[e.source];
+        html += `<li onclick="clickNode('${s.id}')">← ${s.label} (${s.year})</li>`;
+      });
+      html += `</ul>`;
+    }
+  }
+  return html;
+}
+
+function positionTooltipAtNode(d) {
+  const transform = d3.zoomTransform(svg.node());
+  const sx = transform.applyX(d.x);
+  const sy = transform.applyY(d.y);
+  const tw = tooltip.node().offsetWidth;
+  const th = tooltip.node().offsetHeight;
+  let tx = sx + 16, ty = sy - th / 2;
+  if (tx + tw > width - 10) tx = sx - tw - 16;
+  if (ty < 5) ty = 5;
+  if (ty + th > height - 5) ty = height - th - 5;
+  tooltip.style("left", tx + "px").style("top", ty + "px");
+}
+
+// Hover: brief preview
+node.on("mouseenter", (event, d) => {
+  if (pinnedNode) return;
+  tooltip.html(tooltipContent(d, false)).classed("visible", true).classed("pinned", false);
 })
 .on("mousemove", event => {
+  if (pinnedNode) return;
   const [mx, my] = d3.pointer(event, document.body);
   const tw = tooltip.node().offsetWidth, th = tooltip.node().offsetHeight;
   let tx = mx + 14, ty = my - th / 2;
@@ -546,53 +552,36 @@ node.on("mouseenter", (event, d) => {
   if (ty + th > height - 5) ty = height - th - 5;
   tooltip.style("left", tx+"px").style("top", ty+"px");
 })
-.on("mouseleave", () => tooltip.classed("visible", false));
+.on("mouseleave", () => { if (!pinnedNode) tooltip.classed("visible", false); });
 
-// Click → detail
-node.on("click", (event, d) => { event.stopPropagation(); showDetail(d); });
-svg.on("click", () => closeDetail());
+// Click: pin popup with expanded content + highlight
+node.on("click", (event, d) => { event.stopPropagation(); pinNode(d); });
+svg.on("click", () => unpin());
 
-function showDetail(d) {
-  const statusLabel = { original: "Original Data", cites_source: "Cites Source", no_citation: "No Citation Given", phantom: "Phantom Source" };
-  let html = `<h2>${d.label} (${d.year})</h2>`;
-  html += `<div class="dt-meta">${d.fullCite}</div>`;
-  if (d.url) html += `<div style="margin-bottom:8px"><a class="dt-url" href="${d.url}" target="_blank">View source</a></div>`;
-  if (d.quote) html += `<div class="dt-quote">"${d.quote}"</div>`;
-  else if (d.type === "phantom") html += `<div class="dt-quote" style="border-color:var(--uncited)"><em>This source contains no risk estimate.</em></div>`;
-  if (d.note) html += `<div class="dt-note">${d.note}</div>`;
-  const out = edges.filter(e => e.source === d.id);
-  if (out.length) {
-    html += `<div class="dt-section-title">Cites for this claim</div><ul class="dt-link-list">`;
-    out.forEach(e => {
-      const t = nodeMap[e.target];
-      const tag = e.type === "misattributed" ? " (misattributed)" : "";
-      html += `<li onclick="showDetail(nodes.find(n=>n.id==='${t.id}'))">→ ${t.label} (${t.year})${tag}</li>`;
-    });
-    html += `</ul>`;
-  }
-  const inc = edges.filter(e => e.target === d.id);
-  if (inc.length) {
-    html += `<div class="dt-section-title">Cited by</div><ul class="dt-link-list">`;
-    inc.forEach(e => {
-      const s = nodeMap[e.source];
-      html += `<li onclick="showDetail(nodes.find(n=>n.id==='${s.id}'))">← ${s.label} (${s.year})</li>`;
-    });
-    html += `</ul>`;
-  }
-  d3.select("#detail-content").html(html);
-  d3.select("#detail").classed("visible", true);
+function pinNode(d) {
+  pinnedNode = d;
+  visited.add(d.id);
+  tooltip.html(tooltipContent(d, true))
+    .classed("visible", true).classed("pinned", true);
+  positionTooltipAtNode(d);
   highlightNode(d);
 }
 
-function closeDetail() {
-  d3.select("#detail").classed("visible", false);
+function unpin() {
+  pinnedNode = null;
+  tooltip.classed("visible", false).classed("pinned", false);
   resetHighlight();
+}
+
+function clickNode(id) {
+  const d = nodes.find(n => n.id === id);
+  if (d) pinNode(d);
 }
 
 function highlightNode(d) {
   const connected = new Set([d.id]);
   edges.forEach(e => { if (e.source === d.id) connected.add(e.target); if (e.target === d.id) connected.add(e.source); });
-  node.attr("opacity", n => connected.has(n.id) ? 1 : 0.12);
+  node.attr("opacity", n => connected.has(n.id) ? 1 : visited.has(n.id) ? 0.3 : 0.12);
   link.attr("opacity", e => (e.source === d.id || e.target === d.id) ? 1 : 0.05);
 }
 
@@ -601,9 +590,8 @@ function resetHighlight() {
   link.attr("opacity", 1);
 }
 
-window.showDetail = showDetail;
+window.clickNode = clickNode;
 window.nodes = nodes;
-window.closeDetail = closeDetail;
 </script>
 </body>
 </html>
