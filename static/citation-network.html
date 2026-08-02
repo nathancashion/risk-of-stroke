@@ -126,19 +126,15 @@
   </div>
   <div id="legend">
     <div class="legend-col">
-      <h3>Publication type</h3>
-      <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="var(--cited)" /></svg></div> Case report</div>
-      <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><rect x="1" y="1" width="10" height="10" fill="var(--cited)" /></svg></div> Review or systematic review</div>
-      <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><polygon points="6,1 11,11 1,11" fill="var(--cited)" /></svg></div> Original research</div>
-      <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><polygon points="6,0 8,4 12,4 9,7 10,12 6,9 2,12 3,7 0,4 4,4" fill="var(--cited)" /></svg></div> Reference work</div>
-      <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><polygon points="6,1 9,5 6,9 3,5" fill="var(--cited)" /></svg></div> Book or textbook chapter</div>
-      <div class="legend-item"><div class="legend-symbol"><svg width="14" height="14"><line x1="2" y1="2" x2="12" y2="12" stroke="var(--cited)" stroke-width="2"/><line x1="12" y1="2" x2="2" y2="12" stroke="var(--cited)" stroke-width="2"/></svg></div> News or popular press</div>
-    </div>
-    <div class="legend-col">
       <h3>Citation status</h3>
       <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="var(--cited)" /></svg></div> Claim made with a reference</div>
       <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="var(--uncited)" /></svg></div> Claim made without a reference</div>
       <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="none" stroke="var(--uncited)" stroke-width="1.5" stroke-dasharray="2,2"/></svg></div> Phantom source (cited, lacks claim)</div>
+    </div>
+    <div class="legend-col">
+      <h3>Source type</h3>
+      <div class="legend-item"><div class="legend-symbol"><svg width="16" height="16"><circle cx="8" cy="8" r="7" fill="none" stroke="var(--highlight)" stroke-width="1.5"/><circle cx="8" cy="8" r="4.5" fill="var(--cited)" /></svg></div> Ring = original research</div>
+      <div class="legend-item" style="color:var(--text-muted); font-style:italic; max-width:180px;">Other shapes distinguish source type — click a node for details</div>
     </div>
   </div>
   <div id="tooltip"></div>
@@ -325,7 +321,7 @@ const nodes = [
     journal: "The Neurologist",
     fullCite: "Aleyadeh, R., et al. (2026). Cervical Artery Dissection Diagnosed Following Chiropractic Cervical Manipulation: A STOP-CAD Subanalysis. The Neurologist.",
     quote: "Extrapolating from previous registry data, the absolute risk of manipulation-associated CeAD is very low, estimated between <strong>1 in 20,000</strong> to 1 in several million manipulations.",
-    note: "Cites Cassidy (2008) and Church (2016) — per the source's own annotation, neither cited source actually mentions the '1 in 20,000' estimate.",
+    note: "Cites Cassidy (2008) and Church (2016) — neither cited source actually mentions the '1 in 20,000' estimate.",
     type: "no_citation", pubType: "original", cites: null,
     url: "https://journals.lww.com/theneurologist/abstract/2026/03000/cervical_artery_dissection_diagnosed_following.4.aspx"
   }
@@ -338,10 +334,11 @@ const extraEdges = [];
 // ============================================================
 const edges = [];
 nodes.forEach(n => {
-  if (n.cites) {
-    const target = nodes.find(t => t.id === n.cites);
-    edges.push({ source: n.id, target: n.cites, type: target?.type === "phantom" ? "misattributed" : "cites" });
-  }
+  // The edge itself just records "this paper cited that source" — it's
+  // accurate regardless of whether the target turns out to be a phantom
+  // source. Phantom status is a property of the node, shown via its own
+  // dashed styling, not a break in the citation link.
+  if (n.cites) edges.push({ source: n.id, target: n.cites, type: "cites" });
 });
 extraEdges.forEach(e => edges.push(e));
 
@@ -377,51 +374,41 @@ const minYear = Math.min(...allYears) - 1;
 const maxYear = Math.max(...allYears) + 1;
 const xScale = d3.scaleLinear().domain([minYear, maxYear]).range([margin.left, width - margin.right]);
 
-// Y layout: manual lane assignments based on citation chains
-// Lanes spread nodes vertically so related chains sit together
-// and arrows between them have room to curve clearly.
+// Y layout: the Y-axis carries no metric of its own — only X (year) is
+// meaningful. So rather than compress related nodes onto shared lanes,
+// every node gets its own row, evenly spaced, in an order that still keeps
+// citation chains close together top-to-bottom (citing papers above what
+// they cite, tracing down to Haynes at the source). Generous spacing gives
+// the curved edges room to breathe and makes them easy to trace by eye.
 //
-// Lane map (top to bottom):
-//   1: Uncited repeaters citing Xia (Arnold-Ratliff, Iwamoto)
-//   2: Xia, Paul, Britt, Aleyadeh — dead-end no-citation nodes
-//   3: Jones → Saeed chain (isolated misattribution)
-//   4: Vickers chain (Mann, Preul, Piening cite Vickers)
-//   6.5: Mitchell — cites Gross directly
-//   7: Fusco, Engelter, Gross, Neeb — intermediate reviewers, cite Assendelft/Gouveia
-//   7.5: Assendelft, Gouveia → Haynes chain
-//   8.5: Haynes (original source, bottom)
+// Row order (top to bottom):
+//   Uncited repeaters citing Xia (Arnold-Ratliff, Iwamoto)
+//   Xia, Paul, Britt, Aleyadeh — dead-end no-citation nodes
+//   Jones → Saeed chain (isolated; Saeed is a phantom source)
+//   Vickers chain (Piening, Mann, Preul cite Vickers)
+//   Mitchell → Gross chain
+//   Engelter, Fusco, Neeb — intermediate reviewers citing Gouveia/Assendelft
+//   Assendelft, Gouveia → Haynes chain (original source, bottom)
 
-const laneY = {};
-const laneSpacing = 100;
+const laneSpacing = 130;
 const topY = margin.top + 30;
 
-// Assign each node a lane
-const laneDefs = {
-  arnoldratliff2025: 1,
-  iwamoto2024: 1,
-  xia2021: 2,
-  paul2020: 2,
-  britt2023: 2,
-  aleyadeh2026: 2,
-  jones2015: 3,
-  saeed2000: 3,
-  piening2022: 4,
-  mann2001: 4,
-  preul2010: 4,
-  vickers1999: 4.5,
-  mitchell2004: 6.5,
-  engelter2013: 6,
-  fusco2011: 6,
-  gross2002: 7,
-  neeb2016: 7,
-  gouveia2009: 7,
-  assendelft1996: 7.5,
-  haynes1994: 8.5,
-};
+// Each node gets a unique row index (1-based), in reading order top to bottom.
+const rowOrder = [
+  "arnoldratliff2025", "iwamoto2024",
+  "xia2021", "paul2020", "britt2023", "aleyadeh2026",
+  "jones2015", "saeed2000",
+  "piening2022", "mann2001", "preul2010", "vickers1999",
+  "mitchell2004",
+  "engelter2013", "fusco2011", "gross2002", "neeb2016", "gouveia2009",
+  "assendelft1996", "haynes1994",
+];
+const laneDefs = {};
+rowOrder.forEach((id, i) => { laneDefs[id] = i + 1; });
 
 nodes.forEach(n => {
   n.x = xScale(n.year);
-  n.y = topY + (laneDefs[n.id] || 4) * laneSpacing;
+  n.y = topY + (laneDefs[n.id] || rowOrder.length + 1) * laneSpacing;
 });
 
 // Draw axis
@@ -448,10 +435,10 @@ tickYears.forEach(yr => {
 function edgeMarker(d) {
   const s = nodeMap[d.source], t = nodeMap[d.target];
   if (!s || !t) return "url(#arr-cited)";
-  return (s.type === "no_citation" || d.type === "misattributed") ? "url(#arr-uncited)" : "url(#arr-cited)";
+  return s.type === "no_citation" ? "url(#arr-uncited)" : "url(#arr-cited)";
 }
 function edgeStroke(d) {
-  return d.type === "misattributed" ? "var(--edge-broken)" : "var(--edge-color)";
+  return "var(--edge-color)";
 }
 
 const linkG = g.append("g");
@@ -471,7 +458,6 @@ const link = linkG.selectAll("path").data(edges).join("path")
   .attr("fill", "none")
   .attr("stroke", d => edgeStroke(d))
   .attr("stroke-width", 1.2)
-  .attr("stroke-dasharray", d => d.type === "misattributed" ? "5,3" : null)
   .attr("marker-end", d => edgeMarker(d));
 
 // Node shape function
@@ -480,35 +466,25 @@ function drawShape(sel) {
     const el = d3.select(this);
     const fill = (d.type === "no_citation" || d.type === "phantom") ? "var(--uncited)" : "var(--cited)";
     const r = 7;
+    if (d.pubType === "original") {
+      // Spotlight ring: original research is the source type that actually
+      // matters most for weighing this claim, so it gets a prominent halo
+      // rather than another shape/color competing for attention.
+      el.append("circle").attr("r", r + 4)
+        .attr("fill", "none").attr("stroke", "var(--highlight)").attr("stroke-width", 1.5);
+    }
     if (d.type === "phantom") {
-      // Dashed circle, hollow
+      // Dashed circle, hollow — citation status, not source type
       el.append("circle").attr("r", r)
         .attr("fill", "none").attr("stroke", "var(--phantom-stroke)")
         .attr("stroke-width", 1.5).attr("stroke-dasharray", "3,2");
-    } else if (d.pubType === "case_report") {
+    } else {
+      // Every node is the same shape now. Source type (case report, review,
+      // book, etc.) lives in the popup instead of a shape/icon key — see
+      // pubTypeLabel. Only "original research" gets a visual callout (the
+      // ring above), since that's the one distinction that actually matters
+      // for weighing the claim.
       el.append("circle").attr("r", r).attr("fill", fill);
-    } else if (d.pubType === "review") {
-      el.append("rect").attr("x", -r).attr("y", -r).attr("width", r*2).attr("height", r*2).attr("fill", fill);
-    } else if (d.pubType === "original") {
-      el.append("polygon").attr("points", `0,${-r} ${r},${r} ${-r},${r}`).attr("fill", fill);
-    } else if (d.pubType === "reference") {
-      // Star shape
-      const pts = [];
-      for (let i = 0; i < 5; i++) {
-        const aOuter = (i * 72 - 90) * Math.PI / 180;
-        const aInner = ((i * 72) + 36 - 90) * Math.PI / 180;
-        pts.push(`${Math.cos(aOuter)*r},${Math.sin(aOuter)*r}`);
-        pts.push(`${Math.cos(aInner)*r*0.45},${Math.sin(aInner)*r*0.45}`);
-      }
-      el.append("polygon").attr("points", pts.join(" ")).attr("fill", fill);
-    } else if (d.pubType === "book") {
-      el.append("polygon").attr("points", `0,${-r} ${r},0 0,${r} ${-r},0`).attr("fill", fill);
-    } else if (d.pubType === "news") {
-      // X mark
-      el.append("line").attr("x1",-r+1).attr("y1",-r+1).attr("x2",r-1).attr("y2",r-1)
-        .attr("stroke", fill).attr("stroke-width", 2.5).attr("stroke-linecap", "round");
-      el.append("line").attr("x1",r-1).attr("y1",-r+1).attr("x2",-r+1).attr("y2",r-1)
-        .attr("stroke", fill).attr("stroke-width", 2.5).attr("stroke-linecap", "round");
     }
   });
 }
@@ -527,14 +503,17 @@ let pinnedNode = null;
 const visited = new Set();
 const tooltip = d3.select("#tooltip");
 
+const pubTypeLabel = { case_report: "Case report", review: "Review or systematic review", original: "Original research", reference: "Reference work", book: "Book or textbook chapter", news: "News or popular press" };
+
 function tooltipContent(d, expanded) {
   const statusLabel = { original: "Original Data", cites_source: "Cites Source", no_citation: "No Citation Given", phantom: "Phantom Source" };
   let html = `<div class="tt-header">${d.label} (${d.year})</div>`;
   if (expanded) {
+    html += `<div class="tt-meta">${pubTypeLabel[d.pubType]} · ${statusLabel[d.type]}</div>`;
     html += `<div class="tt-meta">${d.fullCite}</div>`;
     if (d.url) html += `<div style="margin-bottom:6px"><a class="tt-url" href="${d.url}" target="_blank">View source ↗</a></div>`;
   } else {
-    html += `<div class="tt-meta">${d.journal} · ${statusLabel[d.type]}</div>`;
+    html += `<div class="tt-meta">${d.journal} · ${pubTypeLabel[d.pubType]} · ${statusLabel[d.type]}</div>`;
   }
   if (d.quote) html += `<div class="tt-quote">${d.quote}</div>`;
   else if (d.type === "phantom" && expanded) html += `<div class="tt-quote" style="border-color:var(--uncited)"><em>This source contains no risk estimate.</em></div>`;
@@ -545,7 +524,7 @@ function tooltipContent(d, expanded) {
       html += `<div class="tt-section">Cites for this claim</div><ul class="tt-links">`;
       out.forEach(e => {
         const t = nodeMap[e.target];
-        const tag = e.type === "misattributed" ? " (misattributed)" : "";
+        const tag = t.type === "phantom" ? " (phantom source)" : "";
         html += `<li onclick="clickNode('${t.id}')">→ ${t.label} (${t.year})${tag}</li>`;
       });
       html += `</ul>`;
@@ -609,7 +588,7 @@ function pinNode(d) {
 function unpin() {
   pinnedNode = null;
   tooltip.classed("visible", false).classed("pinned", false);
-  resetHighlight();
+  restState();
 }
 
 function clickNode(id) {
@@ -624,10 +603,28 @@ function highlightNode(d) {
   link.attr("opacity", e => (e.source === d.id || e.target === d.id) ? 1 : 0.05);
 }
 
-function resetHighlight() {
-  node.attr("opacity", 1);
+// Resting state: nothing pinned. Visited nodes stay visibly dimmed —
+// like a visited hyperlink — so you don't have to remember what you've
+// already read.
+function restState() {
+  node.attr("opacity", n => visited.has(n.id) ? 0.5 : 1);
   link.attr("opacity", 1);
 }
+
+// Even row spacing makes the diagram taller than the viewport, so start
+// zoomed out to fit everything in frame. People zoom in from there.
+const contentTop = margin.top - 10;
+const contentBottom = axisY + 30;
+const contentLeft = margin.left - 20;
+const contentRight = width - margin.right + 20;
+const contentW = contentRight - contentLeft;
+const contentH = contentBottom - contentTop;
+const fitScale = Math.max(0.4, Math.min(4, Math.min(width / contentW, height / contentH) * 0.94));
+const fitTransform = d3.zoomIdentity
+  .translate(width / 2, height / 2)
+  .scale(fitScale)
+  .translate(-(contentLeft + contentRight) / 2, -(contentTop + contentBottom) / 2);
+svg.call(zoom.transform, fitTransform);
 
 window.clickNode = clickNode;
 window.nodes = nodes;
