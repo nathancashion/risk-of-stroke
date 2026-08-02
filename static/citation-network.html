@@ -187,15 +187,6 @@ const nodes = [
     url: "https://doi.org/10.1017/S0317167100001025"
   },
   {
-    id: "rothwell2001", label: "Rothwell et al.", year: 2001,
-    journal: "Stroke",
-    fullCite: "Rothwell, D. M., et al. (2001). Chiropractic manipulation and stroke. Stroke, 32(5), 1054–1060.",
-    quote: "the risk of VBA after cervical manipulation to be between <strong>1 in 1.3 million to 1 in 400,000</strong>",
-    note: "Does NOT cite '1 in 20,000'. Cites Assendelft for a different range.",
-    type: "cites_source", pubType: "original", cites: "assendelft1996",
-    url: "https://doi.org/10.1161/01.str.32.5.1054"
-  },
-  {
     id: "mann2001", label: "Mann & Refshauge", year: 2001,
     journal: "Australian Journal of Physiotherapy",
     fullCite: "Mann, T., & Refshauge, K. M. (2001). Causes of complications from cervical spine manipulation. Aus J Physio, 47(4), 255–266.",
@@ -203,15 +194,6 @@ const nodes = [
     note: "Cites Vickers & Zollman (1999) for the 1 in 20,000.",
     type: "cites_source", pubType: "review", cites: "vickers1999",
     url: "https://doi.org/10.1016/S0004-9514(14)60273-7"
-  },
-  {
-    id: "meeker2002", label: "Meeker & Haldeman", year: 2002,
-    journal: "Annals of Internal Medicine",
-    fullCite: "Meeker, W. C., & Haldeman, S. (2002). Chiropractic: a profession at the crossroads. Ann Intern Med, 136(3), 216–227.",
-    quote: "risk for a cerebrovascular accident… from <strong>1 in 400,000</strong> to between <strong>3 and 6 per 10 million</strong>",
-    note: "Does NOT cite '1 in 20,000'. Referenced by Fusco (2011).",
-    type: "cites_source", pubType: "review", cites: null,
-    url: "https://doi.org/10.7326/0003-4819-136-3-200202050-00010"
   },
   {
     id: "preul2010", label: "Preul et al.", year: 2010,
@@ -236,7 +218,7 @@ const nodes = [
     journal: "Neurosurgery",
     fullCite: "Fusco, M. R., & Harrigan, M. R. (2011). Cerebrovascular Dissections—A Review. Neurosurgery, 68(1), 242.",
     quote: "associated with <strong>1/10,000[?]</strong> to 1/2,000,000 cervical manipulations",
-    note: "Cites Assendelft, Rothwell, Meeker. The '1/10,000' doesn't match any — possible transcription error.",
+    note: "Cites Assendelft directly. The '1/10,000' doesn't match — possible transcription error.",
     type: "cites_source", pubType: "review", cites: "assendelft1996",
     url: "https://doi.org/10.1227/NEU.0b013e3182012323"
   },
@@ -349,10 +331,7 @@ const nodes = [
   }
 ];
 
-const extraEdges = [
-  { source: "fusco2011", target: "rothwell2001", type: "cites" },
-  { source: "fusco2011", target: "meeker2002", type: "cites" }
-];
+const extraEdges = [];
 
 // ============================================================
 // BUILD
@@ -407,10 +386,9 @@ const xScale = d3.scaleLinear().domain([minYear, maxYear]).range([margin.left, w
 //   2: Xia, Paul, Britt, Aleyadeh — dead-end no-citation nodes
 //   3: Jones → Saeed chain (isolated misattribution)
 //   4: Vickers chain (Mann, Preul, Piening cite Vickers)
-//   5: Meeker (cited by Fusco but itself a dead end)
-//   6: Mitchell — cites Gross directly
-//   7: Fusco, Engelter, Gross, Neeb — intermediate reviewers
-//   7.5: Rothwell → Assendelft, Gouveia → Haynes chain
+//   6.5: Mitchell — cites Gross directly
+//   7: Fusco, Engelter, Gross, Neeb — intermediate reviewers, cite Assendelft/Gouveia
+//   7.5: Assendelft, Gouveia → Haynes chain
 //   8.5: Haynes (original source, bottom)
 
 const laneY = {};
@@ -431,13 +409,11 @@ const laneDefs = {
   mann2001: 4,
   preul2010: 4,
   vickers1999: 4.5,
-  meeker2002: 5,
   mitchell2004: 6.5,
   engelter2013: 6,
   fusco2011: 6,
   gross2002: 7,
   neeb2016: 7,
-  rothwell2001: 7,
   gouveia2009: 7,
   assendelft1996: 7.5,
   haynes1994: 8.5,
