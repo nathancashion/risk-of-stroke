@@ -86,7 +86,7 @@
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 14px 16px;
-    max-width: 360px;
+    max-width: min(360px, calc(100vw - 20px));
     font-size: 12px; line-height: 1.5;
     box-shadow: 0 4px 16px var(--card-shadow);
     opacity: 0; transition: opacity 0.12s;
@@ -102,7 +102,7 @@
   }
   #tooltip .tt-quote strong { color: var(--text); font-style: normal; }
   #tooltip .tt-note { font-size: 10.5px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 5px; margin-top: 3px; }
-  #tooltip.pinned { pointer-events: auto; max-width: 380px; max-height: 50vh; overflow-y: auto; }
+  #tooltip.pinned { pointer-events: auto; max-width: min(380px, calc(100vw - 20px)); max-height: min(50vh, calc(100vh - 20px)); overflow-y: auto; }
   #tooltip .tt-section { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin: 10px 0 4px; }
   #tooltip .tt-links { list-style: none; padding: 0; }
   #tooltip .tt-links li { padding: 4px 6px; margin-bottom: 2px; border-radius: 4px; cursor: pointer; font-size: 11px; display: flex; align-items: center; gap: 5px; }
@@ -205,6 +205,24 @@ const nodes = [
     url: "https://doi.org/10.1016/S0004-9514(14)60273-7"
   },
   {
+    id: "meeker2002", label: "Meeker & Haldeman", year: 2002,
+    journal: "Annals of Internal Medicine",
+    fullCite: "Meeker, W. C., & Haldeman, S. (2002). Chiropractic: a profession at the crossroads. Ann Intern Med, 136(3), 216–227.",
+    quote: "risk for a cerebrovascular accident… from <strong>1 in 400,000</strong> to between <strong>3 and 6 per 10 million</strong>",
+    note: "Does NOT cite '1 in 20,000'. Referenced by Fusco (2011).",
+    type: "cites_source", pubType: "review", cites: null,
+    url: "https://doi.org/10.7326/0003-4819-136-3-200202050-00010"
+  },
+  {
+    id: "preul2010", label: "Preul et al.", year: 2010,
+    journal: "Clinical Neuroradiology",
+    fullCite: "Preul, C., Joachimski, F., Witte, O. W., & Isenmann, S. (2010). Bilateral Vertebral Artery Dissection After Chiropractic Maneuver. Clinical Neuroradiology, 20(4), 255–259.",
+    quote: "estimates on the frequency of dissection following spinal manipulations range from <strong>1 in 20,000</strong> to 1 in 5,846,381.",
+    note: "Case report. Cites Vickers & Zollman (1999) for the 1 in 20,000 figure.",
+    type: "cites_source", pubType: "case_report", cites: "vickers1999",
+    url: "https://doi.org/10.1007/s00062-010-0021-x"
+  },
+  {
     id: "gouveia2009", label: "Gouveia et al.", year: 2009,
     journal: "Spine",
     fullCite: "Gouveia, L. O., et al. (2009). Safety of chiropractic interventions. Spine, 34(11), E405-13.",
@@ -218,7 +236,7 @@ const nodes = [
     journal: "Neurosurgery",
     fullCite: "Fusco, M. R., & Harrigan, M. R. (2011). Cerebrovascular Dissections—A Review. Neurosurgery, 68(1), 242.",
     quote: "associated with <strong>1/10,000[?]</strong> to 1/2,000,000 cervical manipulations",
-    note: "Cites Assendelft and Rothwell. The '1/10,000' doesn't match either — possible transcription error.",
+    note: "Cites Assendelft, Rothwell, Meeker. The '1/10,000' doesn't match any — possible transcription error.",
     type: "cites_source", pubType: "review", cites: "assendelft1996",
     url: "https://doi.org/10.1227/NEU.0b013e3182012323"
   },
@@ -292,11 +310,48 @@ const nodes = [
     note: "Popular press. Cites Xia (2021), calling it 'a study in the journal Stroke.'",
     type: "cites_source", pubType: "news", cites: "xia2021",
     url: "https://www.thecut.com/article/neck-cracking-chiropractic-surgery-spine.html"
+  },
+  {
+    id: "gross2002", label: "Gross et al.", year: 2002,
+    journal: "Manual Therapy",
+    fullCite: "Gross, A. R., Kay, T. M., Kennedy, C., Gasner, D., Hurley, L., Yardley, K., Hendry, L., & McLaughlin, L. (2002). Clinical practice guideline on the use of manipulation or mobilization in the treatment of adults with mechanical neck disorders. Manual Therapy, 7(4), 193–205.",
+    quote: "Estimates of harm when using cervical manipulation range from <strong>one in 20,000</strong> to five in 10,000,000.",
+    note: "Cites Assendelft (1996) along with Grieve (1986) and Hurwitz (1996), neither of which appear elsewhere in this network.",
+    type: "cites_source", pubType: "review", cites: "assendelft1996",
+    url: "https://doi.org/10.1054/math.2002.0477"
+  },
+  {
+    id: "mitchell2004", label: "Mitchell et al.", year: 2004,
+    journal: "Manual Therapy",
+    fullCite: "Mitchell, J., Keene, D., Dyson, C., Harvey, L., Pruvey, C., & Phillips, R. (2004). Is cervical spine rotation, as used in the standard vertebrobasilar insufficiency test, associated with a measureable change in intracranial vertebral artery blood flow? Manual Therapy, 9(4), 220–227.",
+    quote: "A recent literature review found estimates of the risk of these serious sequelae ranging from <strong>one in 20,000</strong> to five in 10,000,000 cervical spine manipulations.",
+    note: "Cites Gross et al. (2002) directly — one step removed from Assendelft/Haynes.",
+    type: "cites_source", pubType: "original", cites: "gross2002",
+    url: "https://doi.org/10.1016/j.math.2004.03.005"
+  },
+  {
+    id: "neeb2016", label: "Neeb & Reuter", year: 2016,
+    journal: "Treatment-Related Stroke (Cambridge University Press)",
+    fullCite: "Neeb, L., & Reuter, U. (2016). Stroke after chiropractic manipulations. In Treatment-Related Stroke. Cambridge University Press.",
+    quote: "The risk for severe vascular or neurological complications due to chiropractic maneuvers has been estimated in great variety between 1/585 million and <strong>1/20,000 manipulations</strong>.",
+    note: "Cites Assendelft (1996) along with Haldeman (2001) and Showalter (1997), neither of which appear elsewhere in this network.",
+    type: "cites_source", pubType: "book", cites: "assendelft1996",
+    url: "https://www.cambridge.org/core/books/treatmentrelated-stroke/stroke-after-chiropractic-manipulations/C4EF918806A0A49655CD263536B27B98"
+  },
+  {
+    id: "aleyadeh2026", label: "Aleyadeh et al.", year: 2026,
+    journal: "The Neurologist",
+    fullCite: "Aleyadeh, R., et al. (2026). Cervical Artery Dissection Diagnosed Following Chiropractic Cervical Manipulation: A STOP-CAD Subanalysis. The Neurologist.",
+    quote: "Extrapolating from previous registry data, the absolute risk of manipulation-associated CeAD is very low, estimated between <strong>1 in 20,000</strong> to 1 in several million manipulations.",
+    note: "Cites Cassidy (2008) and Church (2016) — per the source's own annotation, neither cited source actually mentions the '1 in 20,000' estimate.",
+    type: "no_citation", pubType: "original", cites: null,
+    url: "https://journals.lww.com/theneurologist/abstract/2026/03000/cervical_artery_dissection_diagnosed_following.4.aspx"
   }
 ];
 
 const extraEdges = [
-  { source: "fusco2011", target: "rothwell2001", type: "cites" }
+  { source: "fusco2011", target: "rothwell2001", type: "cites" },
+  { source: "fusco2011", target: "meeker2002", type: "cites" }
 ];
 
 // ============================================================
@@ -349,12 +404,14 @@ const xScale = d3.scaleLinear().domain([minYear, maxYear]).range([margin.left, w
 //
 // Lane map (top to bottom):
 //   1: Uncited repeaters citing Xia (Arnold-Ratliff, Iwamoto)
-//   2: Xia, Paul, Britt — dead-end no-citation nodes
+//   2: Xia, Paul, Britt, Aleyadeh — dead-end no-citation nodes
 //   3: Jones → Saeed chain (isolated misattribution)
-//   4: Vickers chain (Mann, Piening cite Vickers)
-//   5: Fusco, Engelter — intermediate reviewers
-//   6: Rothwell → Assendelft, Gouveia → Haynes chain
-//   7: Haynes (original source, bottom)
+//   4: Vickers chain (Mann, Preul, Piening cite Vickers)
+//   5: Meeker (cited by Fusco but itself a dead end)
+//   6: Mitchell — cites Gross directly
+//   7: Fusco, Engelter, Gross, Neeb — intermediate reviewers
+//   7.5: Rothwell → Assendelft, Gouveia → Haynes chain
+//   8.5: Haynes (original source, bottom)
 
 const laneY = {};
 const laneSpacing = 100;
@@ -367,17 +424,23 @@ const laneDefs = {
   xia2021: 2,
   paul2020: 2,
   britt2023: 2,
+  aleyadeh2026: 2,
   jones2015: 3,
   saeed2000: 3,
   piening2022: 4,
   mann2001: 4,
+  preul2010: 4,
   vickers1999: 4.5,
-  engelter2013: 5,
-  fusco2011: 5,
-  rothwell2001: 6,
-  gouveia2009: 6,
-  assendelft1996: 6.5,
-  haynes1994: 7.5,
+  meeker2002: 5,
+  mitchell2004: 6.5,
+  engelter2013: 6,
+  fusco2011: 6,
+  gross2002: 7,
+  neeb2016: 7,
+  rothwell2001: 7,
+  gouveia2009: 7,
+  assendelft1996: 7.5,
+  haynes1994: 8.5,
 };
 
 nodes.forEach(n => {
