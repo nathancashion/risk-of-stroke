@@ -197,8 +197,7 @@
 				<strong class="text-gray-900">1 in 20,000</strong>. But when you multiply that rate by the
 				volume of manipulations performed each year, the resulting number of
 				<strong class="text-red-600">manipulation-caused dissections</strong>
-				represents an implausible portion of all <strong>cervical artery dissections</strong>
-				(<span class="text-teal-600">carotid</span> + <span class="text-slate-500">vertebral</span>) in the entire US population.
+				represents an implausible portion of all <strong>cervical (<span class="text-teal-600">carotid</span> + <span class="text-slate-500">vertebral</span>) artery dissections</strong> in the entire US population.
 				Explore the math yourself below.
 			</p>
 		</div>
