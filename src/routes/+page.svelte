@@ -19,8 +19,8 @@
 		days: 4,
 		weeks: 48,
 		riskDenom: 20_000,
-		vadPer100k: 1,
-		cadPer100k: 2,
+		vadPer100k: 5.3,
+		cadPer100k: 3.6,
 		pop: 330_000_000
 	};
 
@@ -429,8 +429,8 @@
 							<li><strong>20 cervical manipulations/day</strong> — Conservative mid-range estimate of cervical-specific manipulative treatments per chiropractor per clinical day.</li>
 							<li><strong>4 days/week, 48 weeks/year</strong> — Typical full-time chiropractic practice schedule.</li>
 							<li><strong>1 in 20,000 risk</strong> — Commonly cited figure for stroke risk per cervical manipulation. <em>Source: Haldeman et al. (2001), among others. Note: more recent research suggests this figure significantly overstates any causal risk.</em></li>
-							<li><strong>VAD incidence: 1 per 100,000/year</strong> — Vertebral artery dissection annual incidence. <em>Source: Schievink (2001), NEJM.</em></li>
-							<li><strong>CAD incidence: 2 per 100,000/year</strong> — Carotid artery dissection annual incidence. <em>Source: Lee et al. (2006), Debette &amp; Leys (2009).</em></li>
+							<li><strong>VAD incidence: ~5.3 per 100,000/year</strong> — Vertebral artery dissection annual incidence, most recent (2017–2020) period. <em>Source: Griffin et al. (2024), Stroke — estimated from Figure 2B, scaled to the paper's reported combined CeAD rate of 8.93/100,000 for 2017–2020.</em></li>
+							<li><strong>CAD incidence: ~3.6 per 100,000/year</strong> — Carotid artery dissection annual incidence, most recent (2017–2020) period. <em>Source: Griffin et al. (2024), Stroke — estimated from Figure 2B, scaled to the paper's reported combined CeAD rate of 8.93/100,000 for 2017–2020.</em></li>
 							<li><strong>330,000,000 population</strong> — Approximate current US population (US Census Bureau).</li>
 						</ul>
 					</div>
