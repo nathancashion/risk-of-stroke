@@ -444,9 +444,20 @@
 			<p class="text-sm text-gray-500 leading-relaxed">
 				<span class="font-semibold text-gray-700">Interpretation:</span>
 				This calculator does not attempt to determine the true risk of stroke from cervical manipulation.
-				It demonstrates that the commonly cited "1 in 20,000" figure is arithmetically implausible:
-				it would require more manipulation-caused dissections each year than the total number of
-				cervical artery dissections observed in the entire US population from all causes combined.
+				{#if pct >= 100}
+					It demonstrates that the commonly cited "1 in 20,000" figure is arithmetically implausible at these assumptions:
+					it would require more manipulation-caused dissections each year than the total number of
+					cervical artery dissections observed in the entire US population from all causes combined.
+				{:else if pct >= 20}
+					It demonstrates that the commonly cited "1 in 20,000" figure implies an arithmetically implausible share of all
+					cervical artery dissections at these assumptions: manipulation alone would account for
+					{pct.toFixed(0)}% of every cervical artery dissection observed in the entire US population from all causes combined —
+					far more than the proportion actually attributable to manipulation in the epidemiological literature.
+				{:else}
+					At these assumptions, the claimed rate does not exceed the total observed incidence of cervical artery dissection,
+					though it still implies a share of cases that is difficult to reconcile with the epidemiological literature on causation.
+					Adjust the sliders above to see how the underlying assumptions drive this conclusion.
+				{/if}
 			</p>
 		</section>
 	</main>
