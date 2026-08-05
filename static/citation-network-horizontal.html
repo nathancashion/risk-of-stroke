@@ -7,7 +7,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <style>
   :root {
-    --fs-bump: 0.75rem;
     --bg: #fff;
     --text: #1a1a1a;
     --text-secondary: #555;
@@ -44,15 +43,6 @@
       --edge-broken: #e74c3c;
     }
   }
-  /* Text still grows on narrow viewports, just by less — this keeps the
-     header/legend/tooltip from claiming so much width that they collide
-     with each other on phones and tablets in portrait. */
-  @media (max-width: 700px) {
-    :root { --fs-bump: 0.3rem; }
-  }
-  @media (max-width: 420px) {
-    :root { --fs-bump: 0rem; }
-  }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -63,50 +53,32 @@
   #container { width: 100vw; height: 100vh; position: relative; }
   svg { width: 100%; height: 100%; }
 
-  /* Header and legend used to be two independently-positioned absolute
-     elements, each assuming it had the full viewport width to itself —
-     fine on desktop, but on a narrow window they'd overlap since neither
-     knew about the other. Laying them out together in a wrapping flex
-     container lets the legend drop below the header once there's not
-     enough combined width, instead of sitting on top of it. */
-  #topbar {
+  #header {
     position: absolute; top: 0; left: 0; right: 0;
-    z-index: 10;
-    display: flex; flex-wrap: wrap; align-items: flex-start;
-    gap: 10px;
-    padding: 14px 16px 6px;
+    padding: 14px 24px 6px;
     background: linear-gradient(to bottom, var(--bg) 60%, transparent);
-    pointer-events: none;
-    max-height: 100vh; overflow-y: auto;
+    pointer-events: none; z-index: 10;
   }
-  #header { flex: 1 1 320px; min-width: 0; pointer-events: auto; }
-  #header h1 { font-size: calc(16px + var(--fs-bump)); font-weight: 600; }
-  #header p { font-size: calc(12px + var(--fs-bump)); color: var(--text-secondary); margin-top: 3px; max-width: 800px; }
+  #header h1 { font-size: 16px; font-weight: 600; pointer-events: auto; }
+  #header p { font-size: 12px; color: var(--text-secondary); margin-top: 3px; max-width: 800px; }
 
   #legend {
-    flex: 0 1 auto; margin-left: auto;
+    position: absolute; top: 12px; right: 16px;
     background: var(--card-bg);
     border: 1px solid var(--border);
     border-radius: 8px;
     padding: 12px 16px;
-    font-size: calc(11px + var(--fs-bump));
-    pointer-events: auto;
+    font-size: 11px;
+    z-index: 10;
     box-shadow: 0 2px 8px var(--card-shadow);
-    display: flex; flex-wrap: wrap; gap: 20px;
+    display: flex; gap: 28px;
   }
   .legend-col h3 {
-    font-size: calc(10px + var(--fs-bump)); text-transform: uppercase; letter-spacing: 0.5px;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
     color: var(--text-muted); margin-bottom: 6px;
   }
   .legend-item { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; line-height: 1.4; }
   .legend-symbol { width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-
-  /* Below this width the legend can no longer fit two columns side by
-     side without itself overflowing the viewport, so stack them. */
-  @media (max-width: 480px) {
-    #legend { flex-direction: column; gap: 12px; max-width: calc(100vw - 32px); }
-    .legend-item[style] { max-width: none !important; }
-  }
 
   #tooltip {
     position: absolute; pointer-events: none;
@@ -115,62 +87,60 @@
     border-radius: 8px;
     padding: 14px 16px;
     max-width: min(360px, calc(100vw - 20px));
-    font-size: calc(12px + var(--fs-bump)); line-height: 1.5;
+    font-size: 12px; line-height: 1.5;
     box-shadow: 0 4px 16px var(--card-shadow);
     opacity: 0; transition: opacity 0.12s;
     z-index: 20;
   }
   #tooltip.visible { opacity: 1; }
-  #tooltip .tt-header { font-weight: 600; font-size: calc(13px + var(--fs-bump)); margin-bottom: 2px; }
-  #tooltip .tt-meta { font-size: calc(10px + var(--fs-bump)); color: var(--text-muted); margin-bottom: 6px; }
+  #tooltip .tt-header { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+  #tooltip .tt-meta { font-size: 10px; color: var(--text-muted); margin-bottom: 6px; }
   #tooltip .tt-quote {
     border-left: 3px solid var(--highlight);
     padding-left: 8px; font-style: italic;
-    color: var(--text-secondary); margin-bottom: 6px; font-size: calc(11.5px + var(--fs-bump));
+    color: var(--text-secondary); margin-bottom: 6px; font-size: 11.5px;
   }
   #tooltip .tt-quote strong { color: var(--text); font-style: normal; }
-  #tooltip .tt-note { font-size: calc(10.5px + var(--fs-bump)); color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 5px; margin-top: 3px; }
+  #tooltip .tt-note { font-size: 10.5px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 5px; margin-top: 3px; }
   #tooltip.pinned { pointer-events: auto; max-width: min(380px, calc(100vw - 20px)); max-height: min(50vh, calc(100vh - 20px)); overflow-y: auto; }
-  #tooltip .tt-section { font-size: calc(10px + var(--fs-bump)); text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin: 10px 0 4px; }
+  #tooltip .tt-section { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin: 10px 0 4px; }
   #tooltip .tt-links { list-style: none; padding: 0; }
-  #tooltip .tt-links li { padding: 4px 6px; margin-bottom: 2px; border-radius: 4px; cursor: pointer; font-size: calc(11px + var(--fs-bump)); display: flex; align-items: center; gap: 5px; }
+  #tooltip .tt-links li { padding: 4px 6px; margin-bottom: 2px; border-radius: 4px; cursor: pointer; font-size: 11px; display: flex; align-items: center; gap: 5px; }
   #tooltip .tt-links li:hover { background: var(--axis-light); }
-  #tooltip a.tt-url { font-size: calc(11px + var(--fs-bump)); color: var(--highlight); text-decoration: none; word-break: break-all; }
+  #tooltip a.tt-url { font-size: 11px; color: var(--highlight); text-decoration: none; word-break: break-all; }
   #tooltip a.tt-url:hover { text-decoration: underline; }
 
   #instructions {
     position: absolute; bottom: 8px; left: 50%;
     transform: translateX(-50%);
-    font-size: calc(10px + var(--fs-bump)); color: var(--text-muted); z-index: 10;
+    font-size: 10px; color: var(--text-muted); z-index: 10;
   }
 </style>
 </head>
 <body>
 <div id="container">
   <svg></svg>
-  <div id="topbar">
-    <div id="header">
-      <h1>Citation network for the claim that "1 in 20,000 adjustments lead to stroke"</h1>
-      <p>Each node is a publication that states the claim. Arrows point from the citing paper to its cited source. Red = claim made without a valid reference. Hover for details; click to explore.</p>
-      <p style="margin-top:4px"><a href="citation-network-horizontal.html" style="color:var(--highlight)">Switch to the classic (horizontal timeline) layout →</a></p>
+  <div id="header">
+    <h1>Citation network for the claim that "1 in 20,000 adjustments lead to stroke"</h1>
+    <p>Each node is a publication that states the claim. Arrows point from the citing paper to its cited source. Red = claim made without a valid reference. Hover for details; click to explore.</p>
+    <p style="margin-top:4px; pointer-events:auto"><a href="citation-network.html" style="color:var(--highlight)">Switch to the current (vertical timeline) layout →</a></p>
+  </div>
+  <div id="legend">
+    <div class="legend-col">
+      <h3>Citation status</h3>
+      <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="var(--cited)" /></svg></div> Claim made with a reference</div>
+      <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="var(--uncited)" /></svg></div> Claim made without a reference</div>
+      <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="none" stroke="var(--uncited)" stroke-width="1.5" stroke-dasharray="2,2"/></svg></div> Phantom source (cited, lacks claim)</div>
+      <div class="legend-item"><div class="legend-symbol"><svg width="20" height="12"><line x1="1" y1="6" x2="19" y2="6" stroke="var(--edge-color)" stroke-width="1.5" stroke-dasharray="4,2.5"/></svg></div> Dashed edge = cites a real source, but misquotes it</div>
     </div>
-    <div id="legend">
-      <div class="legend-col">
-        <h3>Citation status</h3>
-        <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="var(--cited)" /></svg></div> Claim made with a reference</div>
-        <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="var(--uncited)" /></svg></div> Claim made without a reference</div>
-        <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="none" stroke="var(--uncited)" stroke-width="1.5" stroke-dasharray="2,2"/></svg></div> Phantom source (cited, lacks claim)</div>
-        <div class="legend-item"><div class="legend-symbol"><svg width="20" height="12"><line x1="1" y1="6" x2="19" y2="6" stroke="var(--edge-color)" stroke-width="1.5" stroke-dasharray="4,2.5"/></svg></div> Dashed edge = cites a real source, but misquotes it</div>
-      </div>
-      <div class="legend-col">
-        <h3>Source type</h3>
-        <div class="legend-item"><div class="legend-symbol"><svg width="16" height="16"><circle cx="8" cy="8" r="7" fill="none" stroke="var(--highlight)" stroke-width="1.5"/><circle cx="8" cy="8" r="4.5" fill="var(--cited)" /></svg></div> Ring = original research</div>
-        <div class="legend-item" style="color:var(--text-muted); font-style:italic; max-width:180px;">Other shapes distinguish source type — click a node for details</div>
-      </div>
+    <div class="legend-col">
+      <h3>Source type</h3>
+      <div class="legend-item"><div class="legend-symbol"><svg width="16" height="16"><circle cx="8" cy="8" r="7" fill="none" stroke="var(--highlight)" stroke-width="1.5"/><circle cx="8" cy="8" r="4.5" fill="var(--cited)" /></svg></div> Ring = original research</div>
+      <div class="legend-item" style="color:var(--text-muted); font-style:italic; max-width:180px;">Other shapes distinguish source type — click a node for details</div>
     </div>
   </div>
   <div id="tooltip"></div>
-  <div id="instructions">Scroll or drag to pan · ⌘/Ctrl+scroll or pinch to zoom · Click a node to explore</div>
+  <div id="instructions">Scroll to zoom · Drag to pan · Click a node to explore</div>
 </div>
 
 <script>
@@ -372,38 +342,19 @@ extraEdges.forEach(e => edges.push(e));
 const nodeMap = {};
 nodes.forEach(n => nodeMap[n.id] = n);
 
-let width = window.innerWidth;
-let height = window.innerHeight;
-const margin = { top: 90, bottom: 50, left: 110, right: 60 };
+const width = window.innerWidth;
+const height = window.innerHeight;
+const margin = { top: 90, bottom: 50, left: 60, right: 60 };
 
 const svg = d3.select("svg");
 const g = svg.append("g");
 
 const zoom = d3.zoom().scaleExtent([0.4, 4])
-  .translateExtent([[0, 0], [width, height]])
-  .filter(event => {
-    // Plain scroll should pan, like scrolling a page — not zoom. Reserve
-    // wheel-driven zoom for ctrl/cmd+scroll (also how trackpad pinch is
-    // reported in Chrome/Firefox), so the gesture matches touch pinch-zoom
-    // instead of surprising desktop users expecting scroll = scroll.
-    if (event.type === "wheel") return event.ctrlKey || event.metaKey;
-    return !event.ctrlKey && !event.button;
-  })
   .on("zoom", e => {
     g.attr("transform", e.transform);
     if (pinnedNode) positionTooltipAtNode(pinnedNode);
   });
 svg.call(zoom);
-
-// Plain wheel/trackpad scroll (no ctrl/cmd) pans instead of zooming. The
-// zoom filter above lets these events fall through untouched, so handle
-// them here as a straight translation at the current scale.
-svg.on("wheel", event => {
-  if (event.ctrlKey || event.metaKey) return; // handled by the zoom behavior above
-  event.preventDefault();
-  const k = d3.zoomTransform(svg.node()).k;
-  zoom.translateBy(svg, -event.deltaX / k, -event.deltaY / k);
-});
 
 // Defs: arrow markers
 const defs = svg.append("defs");
@@ -414,126 +365,68 @@ const defs = svg.append("defs");
     .append("path").attr("d","M0 0 L8 3 L0 6z").attr("fill",c);
 });
 
-// Y scale: years. The timeline runs vertically, most recent at the top —
-// domain [minYear, maxYear] maps to range [bottom, top], so larger years
-// land at smaller pixel Y values.
+// X scale: years
 const allYears = nodes.map(n => n.year);
 const minYear = Math.min(...allYears) - 1;
 const maxYear = Math.max(...allYears) + 1;
-const yScale = d3.scaleLinear().domain([minYear, maxYear]);
+const xScale = d3.scaleLinear().domain([minYear, maxYear]).range([margin.left, width - margin.right]);
 
-// X layout: the X-axis carries no metric of its own — only Y (year) is
-// meaningful. Every node still gets its own horizontal position (no two
-// nodes share one), so edges stay easy to trace individually — that's the
-// whole reason this isn't a packed/reused lane scheme.
+// Y layout: the Y-axis carries no metric of its own — only X (year) is
+// meaningful. So rather than compress related nodes onto shared lanes,
+// every node gets its own row, evenly spaced, in an order that still keeps
+// citation chains close together top-to-bottom (citing papers above what
+// they cite, tracing down to Haynes at the source). Generous spacing gives
+// the curved edges room to breathe and makes them easy to trace by eye.
 //
-// Column positions are derived directly from the `cites` graph itself
-// (a forest — each node with no citation is a root) rather than a
-// hand-curated list, because a hand-curated grouping can silently drift
-// out of sync with what the data actually says a node cites. The rule:
-// a leaf (nothing cites it) gets the next unused column, left to right, in
-// a depth-first walk of the forest; a node with children is centered over
-// the span of its children's columns. That keeps every citation edge
-// short — a parent always sits at or near the horizontal middle of what
-// cites it — while still spreading the whole forest across the full
-// width. It also naturally avoids the empty-rectangle problem: each
-// citation lineage's columns are only as wide as that lineage needs, and
-// sit under whatever vertical (year) range that lineage actually spans,
-// so no block of columns is left empty for years it was never going to
-// have nodes in anyway.
-const childrenOf = {};
-nodes.forEach(n => { if (n.cites != null) (childrenOf[n.cites] ??= []).push(n.id); });
+// Row order (top to bottom):
+//   Uncited repeaters citing Xia (Arnold-Ratliff, Iwamoto)
+//   Xia, Paul, Britt, Aleyadeh — dead-end no-citation nodes
+//   Jones → Saeed chain (isolated; Saeed is a phantom source)
+//   Vickers chain (Piening, Mann, Preul cite Vickers)
+//   Mitchell → Gross chain
+//   Engelter, Fusco, Neeb — intermediate reviewers citing Gouveia/Assendelft
+//   Assendelft, Gouveia → Haynes chain (original source, bottom)
 
-let nextLeafColumn = 0;
-const laneDefs = {}; // node id -> column (0-based; may be fractional for non-leaf nodes)
+const laneSpacing = 130;
+const topY = margin.top + 30;
 
-function assignColumn(id) {
-  const kids = childrenOf[id];
-  if (!kids || kids.length === 0) {
-    laneDefs[id] = nextLeafColumn++;
-  } else {
-    const kidCols = kids.map(assignColumn);
-    laneDefs[id] = (Math.min(...kidCols) + Math.max(...kidCols)) / 2;
-  }
-  return laneDefs[id];
-}
+// Each node gets a unique row index (1-based), in reading order top to bottom.
+const rowOrder = [
+  "arnoldratliff2025", "iwamoto2024",
+  "xia2021", "paul2020", "britt2023", "aleyadeh2026",
+  "jones2015", "saeed2000",
+  "piening2022", "mann2001", "preul2010", "vickers1999",
+  "mitchell2004",
+  "engelter2013", "fusco2011", "gross2002", "neeb2016", "gouveia2009", "difabio1999",
+  "assendelft1996", "haynes1994",
+];
+const laneDefs = {};
+rowOrder.forEach((id, i) => { laneDefs[id] = i + 1; });
 
-// Walk the forest for every root that's actually part of a citation chain
-// (it cites nothing, but something cites it). This claims columns 0..N
-// for all the connected lineages, in the order processed — Xia's lineage
-// goes first (leftmost) since it's the one the diagram is meant to lead
-// with; the rest follow in their original reading order.
-const rootProcessingOrder = ["xia2021"];
-nodes.forEach(n => { if (n.cites == null && childrenOf[n.id] && !rootProcessingOrder.includes(n.id)) rootProcessingOrder.push(n.id); });
-rootProcessingOrder.forEach(id => assignColumn(id));
-
-// A handful of nodes cite nothing AND are cited by no one — they have no
-// edges at all, so nothing constrains where they sit. Rather than each
-// claiming a fresh column off to the right, slot them into whichever
-// existing column already has enough vertical (year) clearance near their
-// own year, reusing space the chains above left empty (e.g., a lineage
-// that tops out in the 2000s leaves its column free for anything after).
-const MIN_YEAR_GAP = 3;
-function columnHasRoom(col, year) {
-  return nodes.every(n => {
-    const c = laneDefs[n.id];
-    return c == null || Math.abs(c - col) >= 0.6 || Math.abs(n.year - year) >= MIN_YEAR_GAP;
-  });
-}
-nodes.filter(n => n.cites == null && !childrenOf[n.id]).forEach(n => {
-  let col = -1;
-  for (let c = 0; c < nextLeafColumn; c++) { if (columnHasRoom(c, n.year)) { col = c; break; } }
-  if (col === -1) col = nextLeafColumn++;
-  laneDefs[n.id] = col;
+nodes.forEach(n => {
+  n.x = xScale(n.year);
+  n.y = topY + (laneDefs[n.id] || rowOrder.length + 1) * laneSpacing;
 });
 
-const laneCount = nextLeafColumn;
-const xScale = d3.scaleLinear().domain([0, laneCount - 1]);
-
+// Draw axis
+const maxNodeY = Math.max(...nodes.map(n => n.y)) + 40;
+const axisY = maxNodeY + 30;
 const tickYears = d3.range(Math.ceil(minYear / 2) * 2, maxYear + 1, 2);
-const axisG = g.append("g");
+g.append("line")
+  .attr("x1", margin.left).attr("x2", width - margin.right)
+  .attr("y1", axisY).attr("y2", axisY)
+  .attr("stroke", "var(--axis)").attr("stroke-width", 1);
 
-// Recomputes scale ranges and node positions for the current viewport size,
-// then redraws the axis and repositions nodes/edges. Called once up front
-// and again on every resize.
-function layout() {
-  width = window.innerWidth;
-  height = window.innerHeight;
-  xScale.range([margin.left + 10, width - margin.right]);
-  yScale.range([height - margin.bottom, margin.top]);
-  // Bound panning to the content area (with a little breathing room) so
-  // scrolling/dragging stops once the diagram's edge reaches the
-  // viewport's edge, instead of panning into empty space forever.
-  zoom.translateExtent([[-40, -40], [width + 40, height + 40]]);
-
-  nodes.forEach(n => {
-    n.x = xScale(laneDefs[n.id] ?? laneCount - 1);
-    n.y = yScale(n.year);
-  });
-
-  const axisX = margin.left - 45;
-  axisG.selectAll("*").remove();
-  axisG.append("line")
-    .attr("x1", axisX).attr("x2", axisX)
-    .attr("y1", margin.top - 10).attr("y2", height - margin.bottom + 10)
-    .attr("stroke", "var(--axis)").attr("stroke-width", 1);
-
-  tickYears.forEach(yr => {
-    const ty = yScale(yr);
-    axisG.append("line")
-      .attr("x1", margin.left - 15).attr("x2", width - margin.right)
-      .attr("y1", ty).attr("y2", ty)
-      .attr("stroke", "var(--axis-light)").attr("stroke-width", 0.5);
-    axisG.append("text")
-      .attr("x", axisX - 10).attr("y", ty)
-      .attr("text-anchor", "end").attr("dominant-baseline", "middle")
-      .attr("font-size", "calc(12px + var(--fs-bump))")
-      .attr("fill", "var(--axis)").attr("font-weight", 500)
-      .text(yr);
-  });
-}
-
-layout();
+tickYears.forEach(yr => {
+  const tx = xScale(yr);
+  g.append("line").attr("x1", tx).attr("x2", tx)
+    .attr("y1", margin.top - 10).attr("y2", axisY)
+    .attr("stroke", "var(--axis-light)").attr("stroke-width", 0.5);
+  g.append("text").attr("x", tx).attr("y", axisY + 16)
+    .attr("text-anchor", "middle").attr("font-size", "12px")
+    .attr("fill", "var(--axis)").attr("font-weight", 500)
+    .text(yr);
+});
 
 // Draw edges as quadratic curves
 function edgeMarker(d) {
@@ -545,22 +438,20 @@ function edgeStroke(d) {
   return "var(--edge-color)";
 }
 
-function linkPath(d) {
-  const s = nodeMap[d.source], t = nodeMap[d.target];
-  if (!s || !t) return "";
-  const dx = t.x - s.x, dy = t.y - s.y;
-  const dist = Math.sqrt(dx*dx + dy*dy);
-  // Offset control point perpendicular to the line to create a curve
-  const mx = (s.x + t.x) / 2, my = (s.y + t.y) / 2;
-  const nx = -dy / dist, ny = dx / dist;
-  const curvature = Math.min(dist * 0.25, 60);
-  const cx = mx + nx * curvature, cy = my + ny * curvature;
-  return `M${s.x},${s.y} Q${cx},${cy} ${t.x},${t.y}`;
-}
-
 const linkG = g.append("g");
 const link = linkG.selectAll("path").data(edges).join("path")
-  .attr("d", linkPath)
+  .attr("d", d => {
+    const s = nodeMap[d.source], t = nodeMap[d.target];
+    if (!s || !t) return "";
+    const dx = t.x - s.x, dy = t.y - s.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    // Offset control point perpendicular to the line to create a curve
+    const mx = (s.x + t.x) / 2, my = (s.y + t.y) / 2;
+    const nx = -dy / dist, ny = dx / dist;
+    const curvature = Math.min(dist * 0.25, 60);
+    const cx = mx + nx * curvature, cy = my + ny * curvature;
+    return `M${s.x},${s.y} Q${cx},${cy} ${t.x},${t.y}`;
+  })
   .attr("fill", "none")
   .attr("stroke", d => edgeStroke(d))
   .attr("stroke-width", 1.2)
@@ -718,24 +609,20 @@ function restState() {
   link.attr("opacity", 1);
 }
 
-// The layout is responsive by construction — the lane (X) and year (Y)
-// scales are always sized to the current viewport in layout() — so no
-// zoom-to-fit hack is needed. Start at the identity transform and let
-// people zoom from there.
-svg.call(zoom.transform, d3.zoomIdentity);
-
-// Reflow on resize: recompute scales/positions, then move existing nodes,
-// edges, and axis to match instead of rebuilding the whole diagram.
-function reposition() {
-  node.attr("transform", d => `translate(${d.x},${d.y})`);
-  link.attr("d", linkPath);
-  if (pinnedNode) positionTooltipAtNode(pinnedNode);
-}
-
-window.addEventListener("resize", () => {
-  layout();
-  reposition();
-});
+// Even row spacing makes the diagram taller than the viewport, so start
+// zoomed out to fit everything in frame. People zoom in from there.
+const contentTop = margin.top - 10;
+const contentBottom = axisY + 30;
+const contentLeft = margin.left - 20;
+const contentRight = width - margin.right + 20;
+const contentW = contentRight - contentLeft;
+const contentH = contentBottom - contentTop;
+const fitScale = Math.max(0.4, Math.min(4, Math.min(width / contentW, height / contentH) * 0.94));
+const fitTransform = d3.zoomIdentity
+  .translate(width / 2, height / 2)
+  .scale(fitScale)
+  .translate(-(contentLeft + contentRight) / 2, -(contentTop + contentBottom) / 2);
+svg.call(zoom.transform, fitTransform);
 
 window.clickNode = clickNode;
 window.nodes = nodes;
