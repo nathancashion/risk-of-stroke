@@ -99,12 +99,57 @@
     color: var(--text-muted); margin-bottom: 6px;
   }
   .legend-item { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; line-height: 1.4; }
-  .legend-symbol { width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  /* Sized to the largest symbol (the 16px original-research ring). An SVG
+     with no viewBox clips to its CSS box rather than scaling, so a box
+     narrower than the drawing silently crops it — which is what flattened
+     the top and bottom of the ring when this was 14px. */
+  .legend-symbol { width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .legend-symbol svg { overflow: visible; }
+
+  /* The legend is reference material, not something you read continuously —
+     on a phone it was claiming roughly a third of the screen and burying
+     the diagram it's meant to explain. Below the breakpoint it collapses to
+     a chip you can tap open when you need it. Desktop is untouched: the
+     chip is display:none and the legend is always visible. */
+  #legend-toggle {
+    display: none;
+    flex: 0 0 auto; margin-left: auto;
+    align-items: center; gap: 6px;
+    pointer-events: auto;
+    background: var(--card-bg);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 7px 13px;
+    font-family: inherit;
+    font-size: calc(11px + var(--fs-bump));
+    box-shadow: 0 2px 8px var(--card-shadow);
+    cursor: pointer;
+  }
+  #legend-toggle .chev { transition: transform 0.15s; font-size: 0.85em; }
+  #legend-toggle[aria-expanded="true"] .chev { transform: rotate(180deg); }
+
+  /* Two conditions, because width alone can't tell these cases apart. A
+     1600px-wide but portrait-shaped window (tablet, or a tall half-screen
+     window) has plenty of width yet the inline legend still eats a large
+     share of the visible diagram — so key off shape as well as size. Wide,
+     landscape windows keep the legend open; anything narrow OR portrait
+     collapses it to the chip. */
+  @media (max-width: 1100px), (max-aspect-ratio: 4/3) {
+    #legend-toggle { display: inline-flex; }
+    /* Hidden until the chip is tapped. When shown it wraps onto its own
+       full-width row beneath the header rather than squeezing beside it,
+       and caps its own height so a long legend can't run off a short
+       viewport. */
+    #legend { display: none; flex-basis: 100%; margin-left: 0; max-height: 60vh; overflow-y: auto; }
+    #legend.open { display: flex; }
+  }
 
   /* Below this width the legend can no longer fit two columns side by
      side without itself overflowing the viewport, so stack them. */
   @media (max-width: 480px) {
     #legend { flex-direction: column; gap: 12px; max-width: calc(100vw - 32px); }
+    #legend.open { display: flex; flex-direction: column; }
     .legend-item[style] { max-width: none !important; }
   }
 
@@ -154,6 +199,7 @@
       <p>Each node is a publication that states the claim. Arrows point from the citing paper to its cited source. Red = claim made without a valid reference. Hover for details; click to explore.</p>
       <p style="margin-top:4px"><a href="citation-network-horizontal.html" style="color:var(--highlight)">Switch to the classic (horizontal timeline) layout →</a></p>
     </div>
+    <button id="legend-toggle" type="button" aria-expanded="false" aria-controls="legend">Legend <span class="chev" aria-hidden="true">▾</span></button>
     <div id="legend">
       <div class="legend-col">
         <h3>Citation status</h3>
@@ -165,7 +211,7 @@
       <div class="legend-col">
         <h3>Source type</h3>
         <div class="legend-item"><div class="legend-symbol"><svg width="16" height="16"><circle cx="8" cy="8" r="7" fill="none" stroke="var(--highlight)" stroke-width="1.5"/><circle cx="8" cy="8" r="4.5" fill="var(--cited)" /></svg></div> Ring = original research</div>
-        <div class="legend-item" style="color:var(--text-muted); font-style:italic; max-width:180px;">Other shapes distinguish source type — click a node for details</div>
+        <div class="legend-item" style="color:var(--text-muted); font-style:italic; max-width:180px;">Click a node for source type and full citation</div>
       </div>
     </div>
   </div>
@@ -493,12 +539,58 @@ const xScale = d3.scaleLinear().domain([0, laneCount - 1]);
 const tickYears = d3.range(Math.ceil(minYear / 2) * 2, maxYear + 1, 2);
 const axisG = g.append("g");
 
+// The topbar (title, blurb, legend) and the instructions line float *over*
+// the diagram rather than sitting beside it, so the plot area has to be
+// inset far enough to clear them. With a fixed 90px top margin the newest
+// years rendered underneath the intro text, and because panning is bounded
+// to the content area you couldn't scroll them out from under it — the only
+// escape was zooming out, which isn't discoverable. Measuring the real
+// rendered heights keeps the inset correct as that text rewraps at
+// different widths instead of guessing a constant.
+const CHROME_CLEARANCE = 24;
+
+function measureChrome() {
+  const bar = document.getElementById("topbar");
+  const legend = document.getElementById("legend");
+  const instr = document.getElementById("instructions");
+  // An expanded legend on a narrow screen is a transient overlay the reader
+  // opened deliberately, so it shouldn't shove the whole diagram down —
+  // keep the margin at its collapsed height and let it overlap for as long
+  // as it's open.
+  if (bar && !legend.classList.contains("open")) {
+    margin.top = bar.offsetHeight + CHROME_CLEARANCE;
+  }
+  if (instr) margin.bottom = instr.offsetHeight + CHROME_CLEARANCE;
+}
+
+// Year labels scale with --fs-bump, so on a wide window they render at 24px
+// rather than the 12px the old fixed 110px left margin was sized for — wide
+// enough that the leading digits ran off the left edge of the window.
+// Measuring the rendered label instead of assuming a width keeps the gutter
+// right at every font size.
+const AXIS_LABEL_PAD = 18;  // window edge -> start of the year text
+const AXIS_LABEL_GAP = 12;  // year text -> axis line
+const AXIS_PLOT_GAP = 55;   // axis line -> first node column
+
+function measureAxisGutter() {
+  const probe = axisG.append("text")
+    .attr("font-size", "calc(12px + var(--fs-bump))")
+    .attr("font-weight", 500)
+    .text(String(maxYear));
+  const w = probe.node().getBBox().width;
+  probe.remove();
+  return w;
+}
+
 // Recomputes scale ranges and node positions for the current viewport size,
 // then redraws the axis and repositions nodes/edges. Called once up front
 // and again on every resize.
 function layout() {
   width = window.innerWidth;
   height = window.innerHeight;
+  measureChrome();
+  const axisX = AXIS_LABEL_PAD + measureAxisGutter() + AXIS_LABEL_GAP;
+  margin.left = axisX + AXIS_PLOT_GAP;
   xScale.range([margin.left + 10, width - margin.right]);
   yScale.range([height - margin.bottom, margin.top]);
   // Bound panning to the content area (with a little breathing room) so
@@ -511,7 +603,6 @@ function layout() {
     n.y = yScale(n.year);
   });
 
-  const axisX = margin.left - 45;
   axisG.selectAll("*").remove();
   axisG.append("line")
     .attr("x1", axisX).attr("x2", axisX)
@@ -525,7 +616,7 @@ function layout() {
       .attr("y1", ty).attr("y2", ty)
       .attr("stroke", "var(--axis-light)").attr("stroke-width", 0.5);
     axisG.append("text")
-      .attr("x", axisX - 10).attr("y", ty)
+      .attr("x", axisX - AXIS_LABEL_GAP).attr("y", ty)
       .attr("text-anchor", "end").attr("dominant-baseline", "middle")
       .attr("font-size", "calc(12px + var(--fs-bump))")
       .attr("fill", "var(--axis)").attr("font-weight", 500)
@@ -679,9 +770,28 @@ node.on("mouseenter", (event, d) => {
 })
 .on("mouseleave", () => { if (!pinnedNode) tooltip.classed("visible", false); });
 
+// Legend collapse/expand (mobile only — the chip is display:none above the
+// breakpoint, so this listener simply never fires on desktop). State lives
+// here rather than in storage: the legend should start out of the way on
+// every visit, since the diagram is the point of the page.
+const legendEl = document.getElementById("legend");
+const legendToggle = document.getElementById("legend-toggle");
+
+function setLegendOpen(open) {
+  legendEl.classList.toggle("open", open);
+  legendToggle.setAttribute("aria-expanded", String(open));
+}
+
+legendToggle.addEventListener("click", event => {
+  event.stopPropagation();
+  setLegendOpen(!legendEl.classList.contains("open"));
+});
+
 // Click: pin popup with expanded content + highlight
 node.on("click", (event, d) => { event.stopPropagation(); pinNode(d); });
-svg.on("click", () => unpin());
+// Tapping the diagram dismisses whatever is covering it — the pinned popup
+// and the expanded legend alike.
+svg.on("click", () => { unpin(); setLegendOpen(false); });
 
 function pinNode(d) {
   pinnedNode = d;
