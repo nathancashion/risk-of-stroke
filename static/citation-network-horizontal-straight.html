@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Citation Network (horizontal straight-line experiment): "1 in 20,000 adjustments → stroke"</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+  :root {
+    --bg: #fff;
+    --text: #1a1a1a;
+    --text-secondary: #555;
+    --text-muted: #888;
+    --border: #ddd;
+    --axis: #999;
+    --axis-light: #e0e0e0;
+    --cited: #222;
+    --uncited: #c0392b;
+    --phantom-fill: none;
+    --phantom-stroke: #c0392b;
+    --card-bg: #fff;
+    --card-shadow: rgba(0,0,0,0.15);
+    --highlight: #2563eb;
+    --edge-color: #777;
+    --edge-broken: #c0392b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a1a;
+      --text: #e0e0e0;
+      --text-secondary: #aaa;
+      --text-muted: #666;
+      --border: #333;
+      --axis: #666;
+      --axis-light: #2a2a2a;
+      --cited: #ccc;
+      --uncited: #e74c3c;
+      --phantom-stroke: #e74c3c;
+      --card-bg: #252525;
+      --card-shadow: rgba(0,0,0,0.5);
+      --highlight: #60a5fa;
+      --edge-color: #555;
+      --edge-broken: #e74c3c;
+    }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+  }
+  #container { width: 100vw; height: 100vh; position: relative; }
+  svg { width: 100%; height: 100%; }
+
+  #header {
+    position: absolute; top: 0; left: 0; right: 0;
+    padding: 14px 24px 6px;
+    background: linear-gradient(to bottom, var(--bg) 60%, transparent);
+    pointer-events: none; z-index: 10;
+  }
+  #header h1 { font-size: 16px; font-weight: 600; pointer-events: auto; }
+  #header p { font-size: 12px; color: var(--text-secondary); margin-top: 3px; max-width: 800px; }
+
+  #legend {
+    position: absolute; top: 12px; right: 16px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 11px;
+    z-index: 10;
+    box-shadow: 0 2px 8px var(--card-shadow);
+    display: flex; gap: 28px;
+  }
+  .legend-col h3 {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--text-muted); margin-bottom: 6px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; line-height: 1.4; }
+  /* Sized to the largest symbol (the 16px original-research ring). An SVG
+     with no viewBox clips to its CSS box rather than scaling, so a box
+     narrower than the drawing silently crops it — which is what flattened
+     the top and bottom of the ring when this was 14px. */
+  .legend-symbol { width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .legend-symbol svg { overflow: visible; }
+
+  /* The legend is reference material, not something you read continuously —
+     on a phone it was claiming roughly a third of the screen and burying
+     the diagram it's meant to explain. Below the breakpoint it collapses to
+     a chip you can tap open when you need it. Desktop is untouched: the
+     chip is display:none and the legend is always visible. */
+  #legend-toggle {
+    display: none;
+    position: absolute; top: 12px; right: 16px; z-index: 11;
+    align-items: center; gap: 6px;
+    background: var(--card-bg);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 7px 13px;
+    font-family: inherit;
+    font-size: 11px;
+    box-shadow: 0 2px 8px var(--card-shadow);
+    cursor: pointer;
+  }
+  #legend-toggle .chev { transition: transform 0.15s; font-size: 0.85em; }
+  #legend-toggle[aria-expanded="true"] .chev { transform: rotate(180deg); }
+
+  /* Two conditions, because width alone can't tell these cases apart. A
+     1600px-wide but portrait-shaped window (tablet, or a tall half-screen
+     window) has plenty of width yet the legend still eats a large share of
+     the visible diagram — so key off shape as well as size. Wide, landscape
+     windows keep the legend open; anything narrow OR portrait collapses it
+     to the chip. */
+  @media (max-width: 1100px), (max-aspect-ratio: 4/3) {
+    #legend-toggle { display: inline-flex; }
+    /* Hidden until the chip is tapped. When shown it sits just below the
+       chip and caps its own height so a long legend can't run off a short
+       viewport. */
+    #legend { display: none; top: 52px; max-width: calc(100vw - 32px); max-height: 60vh; overflow-y: auto; }
+    #legend.open { display: flex; flex-wrap: wrap; gap: 16px; }
+  }
+
+  #tooltip {
+    position: absolute; pointer-events: none;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    max-width: min(360px, calc(100vw - 20px));
+    font-size: 12px; line-height: 1.5;
+    box-shadow: 0 4px 16px var(--card-shadow);
+    opacity: 0; transition: opacity 0.12s;
+    z-index: 20;
+  }
+  #tooltip.visible { opacity: 1; }
+  #tooltip .tt-header { font-weight: 600; font-size: 13px; margin-bottom: 2px; }
+  #tooltip .tt-meta { font-size: 10px; color: var(--text-muted); margin-bottom: 6px; }
+  #tooltip .tt-quote {
+    border-left: 3px solid var(--highlight);
+    padding-left: 8px; font-style: italic;
+    color: var(--text-secondary); margin-bottom: 6px; font-size: 11.5px;
+  }
+  #tooltip .tt-quote strong { color: var(--text); font-style: normal; }
+  #tooltip .tt-note { font-size: 10.5px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 5px; margin-top: 3px; }
+  #tooltip.pinned { pointer-events: auto; max-width: min(380px, calc(100vw - 20px)); max-height: min(50vh, calc(100vh - 20px)); overflow-y: auto; }
+  #tooltip .tt-section { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin: 10px 0 4px; }
+  #tooltip .tt-links { list-style: none; padding: 0; }
+  #tooltip .tt-links li { padding: 4px 6px; margin-bottom: 2px; border-radius: 4px; cursor: pointer; font-size: 11px; display: flex; align-items: center; gap: 5px; }
+  #tooltip .tt-links li:hover { background: var(--axis-light); }
+  #tooltip a.tt-url { font-size: 11px; color: var(--highlight); text-decoration: none; word-break: break-all; }
+  #tooltip a.tt-url:hover { text-decoration: underline; }
+
+  #instructions {
+    position: absolute; bottom: 8px; left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px; color: var(--text-muted); z-index: 10;
+  }
+</style>
+</head>
+<body>
+<div id="container">
+  <svg></svg>
+  <div id="header">
+    <h1>Citation network for the claim that "1 in 20,000 adjustments lead to stroke"</h1>
+    <p>Each node is a publication that states the claim. Arrows point from the citing paper to its cited source. Red = claim made without a valid reference. Hover for details; click to explore.</p>
+    <p style="margin-top:4px; pointer-events:auto"><strong>Experiment:</strong> straight-line (orthogonal) edge routing. <a href="citation-network-horizontal.html" style="color:var(--highlight)">Curved horizontal →</a> · <a href="citation-network-straight.html" style="color:var(--highlight)">Straight vertical →</a></p>
+  </div>
+  <button id="legend-toggle" type="button" aria-expanded="false" aria-controls="legend">Legend <span class="chev" aria-hidden="true">▾</span></button>
+  <div id="legend">
+    <div class="legend-col">
+      <h3>Citation status</h3>
+      <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="var(--cited)" /></svg></div> Claim made with a reference</div>
+      <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="var(--uncited)" /></svg></div> Claim made without a reference</div>
+      <div class="legend-item"><div class="legend-symbol"><svg width="12" height="12"><circle cx="6" cy="6" r="5" fill="none" stroke="var(--uncited)" stroke-width="1.5" stroke-dasharray="2,2"/></svg></div> Phantom source (cited, lacks claim)</div>
+      <div class="legend-item"><div class="legend-symbol"><svg width="20" height="12"><line x1="1" y1="6" x2="19" y2="6" stroke="var(--edge-color)" stroke-width="1.5" stroke-dasharray="4,2.5"/></svg></div> Dashed edge = cites a real source, but misquotes it</div>
+    </div>
+    <div class="legend-col">
+      <h3>Source type</h3>
+      <div class="legend-item"><div class="legend-symbol"><svg width="16" height="16"><circle cx="8" cy="8" r="7" fill="none" stroke="var(--highlight)" stroke-width="1.5"/><circle cx="8" cy="8" r="4.5" fill="var(--cited)" /></svg></div> Ring = original research</div>
+      <div class="legend-item" style="color:var(--text-muted); font-style:italic; max-width:180px;">Click a node for source type and full citation</div>
+    </div>
+  </div>
+  <div id="tooltip"></div>
+  <div id="instructions">Scroll to zoom · Drag to pan · Click a node to explore</div>
+</div>
+
+<script>
+// ============================================================
+// DATA
+// pubType: "case_report" | "review" | "original" | "reference" | "book" | "news"
+// type: "original" | "cites_source" | "no_citation" | "phantom"
+// ============================================================
+const nodes = [
+  {
+    id: "haynes1994", label: "Haynes", year: 1994,
+    journal: "Chiropractic Journal of Australia",
+    fullCite: "Haynes, M. J. (1994). Chiropractic Journal of Australia, 24, 42\u201346.",
+    quote: "perhaps fewer than <strong>five cases of manipulation-related stroke per 100,000 patients</strong>",
+    note: "5/100,000 = 1/20,000. Original data source, based on stroke incidence in Perth, Australia relative to chiropractic utilization.",
+    type: "original", pubType: "original", cites: null, url: null
+  },
+  {
+    id: "assendelft1996", label: "Assendelft et al.", year: 1996,
+    journal: "The Journal of Family Practice",
+    fullCite: "Assendelft, W. J., Bouter, L. M., & Knipschild, P. G. (1996). The Journal of Family Practice, 42(5), 475\u2013480.",
+    quote: "He concluded that the incidence was less than <strong>5 per 100,000 patients who had received neck manipulation.</strong>",
+    note: "Accurately cites Haynes. Includes '1 per 20,000' as the lower bound.",
+    type: "cites_source", pubType: "review", cites: "haynes1994", url: null
+  },
+  {
+    id: "difabio1999", label: "Di Fabio", year: 1999,
+    journal: "Physical Therapy",
+    fullCite: "Di Fabio (1999). Manipulation of the cervical spine: risks and benefits. Physical Therapy, 79(1), 50–65.",
+    quote: "Other estimates of complications following chiropractic manipulation of the cervical spine have been in the range of <strong>1 in 200,000</strong> manipulations to 1 in 3 million manipulations.",
+    note: "Cites Haynes (1994) directly and specifically for this figure, but misquotes it as 1 in 200,000 — Haynes actually states 5 in 100,000 (= 1 in 20,000), a 10x transcription error understating the risk. Also cites Carey (1993) for the upper bound (no Source file). The citation link itself is real and precise; the number attached to it isn't what the source says.",
+    type: "cites_source", pubType: "review", cites: "haynes1994", url: "https://academic.oup.com/ptj/article-abstract/79/1/50/2857770",
+    citeIntegrity: "misquoted"
+  },
+  {
+    id: "vickers1999", label: "Vickers & Zollman", year: 1999,
+    journal: "BMJ",
+    fullCite: "Vickers, A., & Zollman, C. (1999). The manipulative therapies: Osteopathy and chiropractic. BMJ\u202f: British Medical Journal, 319(7218), 1176\u20131179.",
+    quote: "Estimates of [stroke] vary widely, ranging from <strong>1 in 20,000 patients</strong> undergoing cervical manipulation to 1 per million procedures.",
+    note: "Textbook chapter. No reference provided for the 1 in 20,000 figure.",
+    type: "no_citation", pubType: "book", cites: null, url: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1116959/"
+  },
+  {
+    id: "saeed2000", label: "Saeed et al.", year: 2000,
+    journal: "Canadian Journal of Neurological Sciences",
+    fullCite: "Saeed, A. B., Shuaib, A., Emery, D., & Al-Sulaiti, G. (2000). Vertebral Artery Dissection: Warning Symptoms, Clinical Features and Prognosis in 26 Patients. Canadian Journal of Neurological Sciences / Journal Canadien Des Sciences Neurologiques, 27(4), 292\u2013296.",
+    quote: null,
+    note: "Cited by Jones (2015) for '1 in 20,000' but contains NO risk estimate. Phantom source \u2014 see Jones's cites-for-claim for the incoming link.",
+    type: "phantom", pubType: "case_report", cites: null, url: "https://doi.org/10.1017/S0317167100001025"
+  },
+  {
+    id: "mann2001", label: "Mann & Refshauge", year: 2001,
+    journal: "Australian Journal of Physiotherapy",
+    fullCite: "Mann, T., & Refshauge, K. M. (2001). Causes of complications from cervical spine manipulation. Australian Journal of Physiotherapy, 47(4), 255\u2013266.",
+    quote: "from <strong>one in 20,000 patients</strong> receiving cervical manipulation to one per million manipulative procedures (Vickers & Zollman, 1999)",
+    note: "Cites Vickers & Zollman (1999) for the 1 in 20,000.",
+    type: "cites_source", pubType: "review", cites: "vickers1999", url: "https://doi.org/10.1016/S0004-9514(14)60273-7"
+  },
+  {
+    id: "gross2002", label: "Gross et al.", year: 2002,
+    journal: "Manual Therapy",
+    fullCite: "Gross, A. R., Kay, T. M., Kennedy, C., Gasner, D., Hurley, L., Yardley, K., Hendry, L., & McLaughlin, L. (2002). Clinical practice guideline on the use of manipulation or mobilization in the treatment of adults with mechanical neck disorders. Manual Therapy, 7(4), 193\u2013205.",
+    quote: "Estimates of harm when using cervical manipulation range from <strong>one in 20,000</strong> to five in 10,000,000.",
+    note: "Cites Assendelft (1996) along with Grieve (1986) and Hurwitz (1996), neither of which appear elsewhere in this network.",
+    type: "cites_source", pubType: "review", cites: "assendelft1996", url: "https://doi.org/10.1054/math.2002.0477"
+  },
+  {
+    id: "mitchell2004", label: "Mitchell et al.", year: 2004,
+    journal: "Manual Therapy",
+    fullCite: "Mitchell, J., Keene, D., Dyson, C., Harvey, L., Pruvey, C., & Phillips, R. (2004). Is cervical spine rotation, as used in the standard vertebrobasilar insufficiency test, associated with a measureable change in intracranial vertebral artery blood flow? Manual Therapy, 9(4), 220\u2013227.",
+    quote: "A recent literature review found estimates of the risk of these serious sequelae ranging from <strong>one in 20,000</strong> to five in 10,000,000 cervical spine manipulations.",
+    note: "Cites Gross et al. (2002) directly \u2014 one step removed from Assendelft/Haynes.",
+    type: "cites_source", pubType: "original", cites: "gross2002", url: "https://doi.org/10.1016/j.math.2004.03.005"
+  },
+  {
+    id: "gouveia2009", label: "Gouveia et al.", year: 2009,
+    journal: "Spine",
+    fullCite: "Gouveia, L. O., Castanho, P., & Ferreira, J. J. (2009). Safety of chiropractic interventions: a systematic review. Spine (Philadelphia, Pa.\u202f: 1986), 34(11), E405-13.",
+    quote: "varying from <strong>5 strokes/100,000 manipulations</strong> to 1.46 case serious adverse events/10,000,000 manipulations",
+    note: "Cites Haynes (1994) directly. The 5/100,000 = 1/20,000.",
+    type: "cites_source", pubType: "review", cites: "haynes1994", url: "https://doi.org/10.1097/BRS.0b013e3181a16d63"
+  },
+  {
+    id: "preul2010", label: "Preul et al.", year: 2010,
+    journal: "Clinical Neuroradiology",
+    fullCite: "Preul, C., Joachimski, F., Witte, O. W., & Isenmann, S. (2010). Bilateral Vertebral Artery Dissection After Chiropractic Maneuver. Clinical Neuroradiology, 20(4), 255\u2013259.",
+    quote: "estimates on the frequency of dissection following spinal manipulations range from <strong>1 in 20,000</strong> to 1 in 5,846,381.",
+    note: "Case report. Cites Vickers & Zollman (1999) for the 1 in 20,000 figure.",
+    type: "cites_source", pubType: "case_report", cites: "vickers1999", url: "https://doi.org/10.1007/s00062-010-0021-x"
+  },
+  {
+    id: "fusco2011", label: "Fusco & Harrigan", year: 2011,
+    journal: "Neurosurgery",
+    fullCite: "Fusco, M. R., & Harrigan, M. R. (2011). Cerebrovascular Dissections\u2014A Review. Part II: Blunt Cerebrovascular Injury. Neurosurgery, 68(2), 517.",
+    quote: "Vertebrobasilar dissections are associated with <strong>1/10,000[?]</strong> to 1/2,000,000 cervical manipulations",
+    note: "Cites Assendelft directly. The '1/10,000' doesn't match \u2014 possible transcription error. Also cites Rothwell and Meeker, but neither of those actually states the claim (see their citation-status: not-applicable).",
+    type: "cites_source", pubType: "review", cites: "assendelft1996", url: "https://doi.org/10.1227/NEU.0b013e3181fe2fda"
+  },
+  {
+    id: "engelter2013", label: "Engelter et al.", year: 2013,
+    journal: "Neurology",
+    fullCite: "Engelter, S. T., Grond-Ginsbach, C., Metso, T. M., Metso, A. J., Kloss, M., Debette, S., Leys, D., Grau, A., Dallongeville, J., Bodenant, M., Samson, Y., Caso, V., Pezzini, A., Bonati, L. H., Thijs, V., Gensicke, H., Martin, J. J., Bersano, A., Touz\u00e9, E., \u2026 Cervical Artery Dissection and Ischemic Stroke Patients Study Group. (2013). Cervical artery dissection: trauma and other potential mechanical trigger events. Neurology, 80(21), 1950\u20131957.",
+    quote: "1 in 2 million to <strong>5 in 100,000 patients</strong>",
+    note: "Cites Gouveia (2009), which cites Haynes (1994). Two intermediaries.",
+    type: "cites_source", pubType: "original", cites: "gouveia2009", url: "https://doi.org/10.1212/WNL.0b013e318293e2eb"
+  },
+  {
+    id: "jones2015", label: "Jones et al.", year: 2015,
+    journal: "Baylor Univ. Med Center Proceedings",
+    fullCite: "Jones, J., Jones, C., & Nugent, K. (2015). Vertebral artery dissection after a chiropractor neck manipulation. Proceedings (Baylor University. Medical Center), 28(1), 88\u201390.",
+    quote: "<strong>1 in 20,000 spinal manipulations</strong> results in a vertebral artery aneurysm/dissection",
+    note: "Cites Saeed (2000), but Saeed provides NO risk estimate \u2014 Saeed is a phantom source. Jones's citation is accurate as a citation; the problem is what it points to, not the link itself.",
+    type: "cites_source", pubType: "case_report", cites: "saeed2000", url: "https://doi.org/10.1080/08998280.2015.11929202"
+  },
+  {
+    id: "neeb2016", label: "Neeb & Reuter", year: 2016,
+    journal: "Treatment-Related Stroke (Cambridge University Press)",
+    fullCite: "Neeb & Reuter (2016). Stroke after chiropractic manipulations. Treatment-Related Stroke (Cambridge University Press).",
+    quote: "The risk for severe vascular or neurological complications due to chiropractic maneuvers has been estimated in great variety between 1/585 million and <strong>1/20,000 manipulations</strong>.",
+    note: "Cites Assendelft (1996) along with Haldeman (2001) and Showalter (1997), neither of which appear elsewhere in this network.",
+    type: "cites_source", pubType: "book", cites: "assendelft1996", url: "https://www.cambridge.org/core/books/treatmentrelated-stroke/stroke-after-chiropractic-manipulations/C4EF918806A0A49655CD263536B27B98"
+  },
+  {
+    id: "paul2020", label: "Paul & Kumar", year: 2020,
+    journal: "Int J Contemporary Pediatrics",
+    fullCite: "Paul, A. J., & Kumar, R. (2020). A rare case of ischaemic stroke following cervical spine manipulation in an adolescent girl. International Journal of Contemporary Pediatrics, 7(2), 445\u2013448.",
+    quote: "An average of <strong>1 in 20,000 neck manipulations</strong> result in ischemic infarct or vertebral artery aneurysm.",
+    note: "No references given for this claim.",
+    type: "no_citation", pubType: "case_report", cites: null, url: "https://doi.org/10.18203/2349-3291.ijcp20200127"
+  },
+  {
+    id: "xia2021", label: "Xia", year: 2021,
+    journal: "Stroke (conference abstract)",
+    fullCite: "[No citation]",
+    quote: "It is estimated that <strong>1 in 20,000 spinal manipulation</strong> results in vertebral artery aneurysm/dissection.",
+    note: "Conference abstract for a case report. No citation. Cannot provide a population-level estimate.",
+    type: "no_citation", pubType: "case_report", cites: null, url: null
+  },
+  {
+    id: "piening2022", label: "Piening et al.", year: 2022,
+    journal: "SAGE Open Medical Case Reports",
+    fullCite: "Piening, K., Piening, N. M., & Chiou, A. (2022). Internal carotid artery dissection following self-manipulation: A case report. Sage Open Medical Case Reports, 10, 2050313X221122451.",
+    quote: "incidence stated <strong>between 1 in 20,000 and 1 in a million</strong> spinal manipulations",
+    note: "Cites Vickers & Zollman (1999), a textbook chapter with no reference.",
+    type: "cites_source", pubType: "case_report", cites: "vickers1999", url: "https://doi.org/10.1177/2050313X221122451"
+  },
+  {
+    id: "britt2023", label: "Britt & Agarwal", year: 2023,
+    journal: "StatPearls",
+    fullCite: "Britt, T. B., & Agarwal, S. (2023). Vertebral Artery Dissection. In StatPearls. StatPearls Publishing.",
+    quote: "It is estimated that <strong>1 in 20,000 cervical spine manipulations</strong> cause a stroke.",
+    note: "Listed references don't mention stroke risk. Claim since removed from article.",
+    type: "no_citation", pubType: "reference", cites: null, url: "https://www.ncbi.nlm.nih.gov/books/NBK441827/"
+  },
+  {
+    id: "iwamoto2024", label: "Iwamoto et al.", year: 2024,
+    journal: "Cureus",
+    fullCite: "Iwamoto, S., Hsu, M. D., Ta, A. P. D., Leo, A., Chu, H., Chu, G., Iwamoto, S., Hsu, M. D., Ta, A. P. D., Leo, A., Chu, H., & Chu, G. (2024). Twists and Turns: A Chiropractic Roller Coaster Experience Unraveling the Intricacies of Bilateral Vertebral Artery Dissection. Cureus, 16(2).",
+    quote: "Of note, it is estimated that <strong>one in 20,000 spinal manipulations</strong> has resulted in VADs.",
+    note: "Cites Xia (2021), a conference abstract with no citation of its own.",
+    type: "cites_source", pubType: "case_report", cites: "xia2021", url: "https://doi.org/10.7759/cureus.54990"
+  },
+  {
+    id: "arnoldratliff2025", label: "Arnold-Ratliff", year: 2025,
+    journal: "The Cut (New York Magazine)",
+    fullCite: "Arnold-Ratliff, K. (2025, April 25). The Truth About Getting Your Neck Cracked. The Cut.",
+    quote: "<strong>1 in 20,000 chiropractic neck adjustments</strong> results in an injury to vertebral arteries.",
+    note: "Popular press. Cites Xia (2021), calling it 'a study in the journal Stroke.'",
+    type: "cites_source", pubType: "news", cites: "xia2021", url: "https://www.thecut.com/article/neck-cracking-chiropractic-surgery-spine.html"
+  },
+  {
+    id: "aleyadeh2026", label: "Aleyadeh et al.", year: 2026,
+    journal: "The Neurologist",
+    fullCite: "Aleyadeh et al. (2026). Cervical Artery Dissection Diagnosed Following Chiropractic Cervical Manipulation: A STOP-CAD Subanalysis. The Neurologist.",
+    quote: "Extrapolating from previous registry data, the absolute risk of manipulation-associated CeAD is very low, estimated between <strong>1 in 20,000</strong> to 1 in several million manipulations.",
+    note: "Cites Cassidy (2008) and Church (2016) \u2014 neither cited source actually mentions the '1 in 20,000' estimate.",
+    type: "no_citation", pubType: "original", cites: null, url: "https://journals.lww.com/theneurologist/abstract/2026/03000/cervical_artery_dissection_diagnosed_following.4.aspx"
+  }
+];
+
+const extraEdges = [];
+
+// ============================================================
+// BUILD
+// ============================================================
+const edges = [];
+nodes.forEach(n => {
+  // The edge itself just records "this paper cited that source" — that's
+  // accurate regardless of whether the target turns out to be a phantom
+  // source (phantom status is a property of the node, shown via its own
+  // dashed styling). The one case where the EDGE itself is the problem is
+  // citeIntegrity: "misquoted" — the citing paper points at a real, valid
+  // source, but gets the number wrong. That's a broken derivation, not a
+  // broken node, so it's flagged on the edge.
+  if (n.cites) edges.push({ source: n.id, target: n.cites, type: n.citeIntegrity === "misquoted" ? "misquoted" : "cites" });
+});
+extraEdges.forEach(e => edges.push(e));
+
+const nodeMap = {};
+nodes.forEach(n => nodeMap[n.id] = n);
+
+const width = window.innerWidth;
+const height = window.innerHeight;
+const margin = { top: 90, bottom: 50, left: 60, right: 60 };
+
+const svg = d3.select("svg");
+const g = svg.append("g");
+
+const zoom = d3.zoom().scaleExtent([0.4, 4])
+  .on("zoom", e => {
+    g.attr("transform", e.transform);
+    if (pinnedNode) positionTooltipAtNode(pinnedNode);
+  });
+svg.call(zoom);
+
+// Defs: arrow markers
+const defs = svg.append("defs");
+[["arr-cited","var(--edge-color)"],["arr-uncited","var(--edge-broken)"]].forEach(([id,c]) => {
+  defs.append("marker").attr("id",id)
+    .attr("viewBox","0 0 8 6").attr("refX",8).attr("refY",3)
+    .attr("markerWidth",7).attr("markerHeight",5).attr("orient","auto")
+    .append("path").attr("d","M0 0 L8 3 L0 6z").attr("fill",c);
+});
+
+// X scale: years
+const allYears = nodes.map(n => n.year);
+const minYear = Math.min(...allYears) - 1;
+const maxYear = Math.max(...allYears) + 1;
+const xScale = d3.scaleLinear().domain([minYear, maxYear]).range([margin.left, width - margin.right]);
+
+// Y layout: the Y-axis carries no metric of its own — only X (year) is
+// meaningful. So rather than compress related nodes onto shared lanes,
+// every node gets its own row, evenly spaced, in an order that still keeps
+// citation chains close together top-to-bottom (citing papers above what
+// they cite, tracing down to Haynes at the source). Generous spacing gives
+// the curved edges room to breathe and makes them easy to trace by eye.
+//
+// Row order (top to bottom):
+//   Uncited repeaters citing Xia (Arnold-Ratliff, Iwamoto)
+//   Xia, Paul, Britt, Aleyadeh — dead-end no-citation nodes
+//   Jones → Saeed chain (isolated; Saeed is a phantom source)
+//   Vickers chain (Piening, Mann, Preul cite Vickers)
+//   Mitchell → Gross chain
+//   Engelter, Fusco, Neeb — intermediate reviewers citing Gouveia/Assendelft
+//   Assendelft, Gouveia → Haynes chain (original source, bottom)
+
+const laneSpacing = 130;
+const topY = margin.top + 30;
+
+// Each node gets a unique row index (1-based), in reading order top to bottom.
+const rowOrder = [
+  "arnoldratliff2025", "iwamoto2024",
+  "xia2021", "paul2020", "britt2023", "aleyadeh2026",
+  "jones2015", "saeed2000",
+  "piening2022", "mann2001", "preul2010", "vickers1999",
+  "mitchell2004",
+  "engelter2013", "fusco2011", "gross2002", "neeb2016", "gouveia2009", "difabio1999",
+  "assendelft1996", "haynes1994",
+];
+const laneDefs = {};
+rowOrder.forEach((id, i) => { laneDefs[id] = i + 1; });
+
+nodes.forEach(n => {
+  n.x = xScale(n.year);
+  n.y = topY + (laneDefs[n.id] || rowOrder.length + 1) * laneSpacing;
+});
+
+// Draw axis
+const maxNodeY = Math.max(...nodes.map(n => n.y)) + 40;
+const axisY = maxNodeY + 30;
+const tickYears = d3.range(Math.ceil(minYear / 2) * 2, maxYear + 1, 2);
+g.append("line")
+  .attr("x1", margin.left).attr("x2", width - margin.right)
+  .attr("y1", axisY).attr("y2", axisY)
+  .attr("stroke", "var(--axis)").attr("stroke-width", 1);
+
+tickYears.forEach(yr => {
+  const tx = xScale(yr);
+  g.append("line").attr("x1", tx).attr("x2", tx)
+    .attr("y1", margin.top - 10).attr("y2", axisY)
+    .attr("stroke", "var(--axis-light)").attr("stroke-width", 0.5);
+  g.append("text").attr("x", tx).attr("y", axisY + 16)
+    .attr("text-anchor", "middle").attr("font-size", "12px")
+    .attr("fill", "var(--axis)").attr("font-weight", 500)
+    .text(yr);
+});
+
+// Draw edges as quadratic curves
+function edgeMarker(d) {
+  const s = nodeMap[d.source], t = nodeMap[d.target];
+  if (!s || !t) return "url(#arr-cited)";
+  return s.type === "no_citation" ? "url(#arr-uncited)" : "url(#arr-cited)";
+}
+function edgeStroke(d) {
+  return "var(--edge-color)";
+}
+
+const linkG = g.append("g");
+// EXPERIMENT: orthogonal ("straight line") edge routing, per design feedback.
+//
+// Instead of a free-floating curve between two points, each citation is
+// drawn as two axis-aligned runs joined by one rounded corner:
+//
+//   1. a HORIZONTAL run back along the citing paper's own row, and
+//   2. a VERTICAL run down the cited paper's publication year, into it.
+//
+// This is the transpose of the vertical variant: there the lineage lane is
+// the X axis and the year is Y, here it's the other way round, so the two
+// runs swap axes. The horizontal run reads as "this paper's own line of
+// descent"; the vertical run sits exactly on the cited year's gridline, so
+// where a citation lands in time is readable straight off the axis rather
+// than inferred from where a curve happens to terminate. Papers citing the
+// same source converge onto that source's year line, which makes a
+// heavily-cited node look like a trunk with branches feeding it.
+//
+// Trade-off worth watching when comparing against the curved version: two
+// papers in the same row citing the same source produce collinear segments
+// that overlap exactly, where distinct curves would have stayed visually
+// separate.
+const CORNER_RADIUS = 12;
+const ARROW_GAP = 10; // stop short of the target so the arrowhead clears its circle
+
+function linkPath(d) {
+  const s = nodeMap[d.source], t = nodeMap[d.target];
+  if (!s || !t) return "";
+  const dx = t.x - s.x, dy = t.y - s.y;
+  const sgnX = Math.sign(dx), sgnY = Math.sign(dy);
+
+  // Same year: a single straight vertical run, no corner needed.
+  if (Math.abs(dx) < 1) return `M${s.x},${s.y} L${t.x},${t.y - sgnY * ARROW_GAP}`;
+  // Same row: a single straight horizontal run.
+  if (Math.abs(dy) < 1) return `M${s.x},${s.y} L${t.x - sgnX * ARROW_GAP},${t.y}`;
+
+  // Shrink the corner when either run is too short to accommodate it,
+  // otherwise the arc would overshoot past its own endpoint.
+  const r = Math.min(CORNER_RADIUS, Math.abs(dx) / 2, Math.abs(dy) / 2);
+  const endY = t.y - sgnY * ARROW_GAP;
+  return `M${s.x},${s.y}`
+       + ` H${t.x - sgnX * r}`
+       + ` Q${t.x},${s.y} ${t.x},${s.y + sgnY * r}`
+       + ` V${endY}`;
+}
+
+const link = linkG.selectAll("path").data(edges).join("path")
+  .attr("d", linkPath)
+  .attr("fill", "none")
+  .attr("stroke", d => edgeStroke(d))
+  .attr("stroke-width", 1.2)
+  .attr("stroke-dasharray", d => d.type === "misquoted" ? "5,3" : null)
+  .attr("marker-end", d => edgeMarker(d));
+
+// Node shape function
+function drawShape(sel) {
+  sel.each(function(d) {
+    const el = d3.select(this);
+    const fill = (d.type === "no_citation" || d.type === "phantom") ? "var(--uncited)" : "var(--cited)";
+    const r = 7;
+    if (d.pubType === "original") {
+      // Spotlight ring: original research is the source type that actually
+      // matters most for weighing this claim, so it gets a prominent halo
+      // rather than another shape/color competing for attention.
+      el.append("circle").attr("r", r + 4)
+        .attr("fill", "none").attr("stroke", "var(--highlight)").attr("stroke-width", 1.5);
+    }
+    if (d.type === "phantom") {
+      // Dashed circle, hollow — citation status, not source type
+      el.append("circle").attr("r", r)
+        .attr("fill", "none").attr("stroke", "var(--phantom-stroke)")
+        .attr("stroke-width", 1.5).attr("stroke-dasharray", "3,2");
+    } else {
+      // Every node is the same shape now. Source type (case report, review,
+      // book, etc.) lives in the popup instead of a shape/icon key — see
+      // pubTypeLabel. Only "original research" gets a visual callout (the
+      // ring above), since that's the one distinction that actually matters
+      // for weighing the claim.
+      el.append("circle").attr("r", r).attr("fill", fill);
+    }
+  });
+}
+
+const node = g.append("g").selectAll("g").data(nodes).join("g")
+  .attr("transform", d => `translate(${d.x},${d.y})`)
+  .attr("cursor", "pointer");
+
+node.call(drawShape);
+
+// Invisible larger hit area
+node.append("circle").attr("r", 14).attr("fill", "transparent");
+
+// Popup state
+let pinnedNode = null;
+const visited = new Set();
+const tooltip = d3.select("#tooltip");
+
+const pubTypeLabel = { case_report: "Case report", review: "Review or systematic review", original: "Original research", reference: "Reference work", book: "Book or textbook chapter", news: "News or popular press" };
+
+function tooltipContent(d, expanded) {
+  const statusLabel = { original: "Original Data", cites_source: "Cites Source", no_citation: "No Citation Given", phantom: "Phantom Source" };
+  let html = `<div class="tt-header">${d.label} (${d.year})</div>`;
+  if (expanded) {
+    html += `<div class="tt-meta">${pubTypeLabel[d.pubType]} · ${statusLabel[d.type]}</div>`;
+    html += `<div class="tt-meta">${d.fullCite}</div>`;
+    if (d.url) html += `<div style="margin-bottom:6px"><a class="tt-url" href="${d.url}" target="_blank">View source ↗</a></div>`;
+  } else {
+    html += `<div class="tt-meta">${d.journal} · ${pubTypeLabel[d.pubType]} · ${statusLabel[d.type]}</div>`;
+  }
+  if (d.quote) html += `<div class="tt-quote">${d.quote}</div>`;
+  else if (d.type === "phantom" && expanded) html += `<div class="tt-quote" style="border-color:var(--uncited)"><em>This source contains no risk estimate.</em></div>`;
+  if (d.note) html += `<div class="tt-note">${d.note}</div>`;
+  if (expanded) {
+    const out = edges.filter(e => e.source === d.id);
+    if (out.length) {
+      html += `<div class="tt-section">Cites for this claim</div><ul class="tt-links">`;
+      out.forEach(e => {
+        const t = nodeMap[e.target];
+        const tag = e.type === "misquoted" ? " (number doesn't match source)" : t.type === "phantom" ? " (phantom source)" : "";
+        html += `<li onclick="clickNode('${t.id}')">→ ${t.label} (${t.year})${tag}</li>`;
+      });
+      html += `</ul>`;
+    }
+    const inc = edges.filter(e => e.target === d.id);
+    if (inc.length) {
+      html += `<div class="tt-section">Cited by</div><ul class="tt-links">`;
+      inc.forEach(e => {
+        const s = nodeMap[e.source];
+        html += `<li onclick="clickNode('${s.id}')">← ${s.label} (${s.year})</li>`;
+      });
+      html += `</ul>`;
+    }
+  }
+  return html;
+}
+
+function positionTooltipAtNode(d) {
+  const transform = d3.zoomTransform(svg.node());
+  const sx = transform.applyX(d.x);
+  const sy = transform.applyY(d.y);
+  const tw = tooltip.node().offsetWidth;
+  const th = tooltip.node().offsetHeight;
+  let tx = sx + 16, ty = sy - th / 2;
+  if (tx + tw > width - 10) tx = sx - tw - 16;
+  if (ty < 5) ty = 5;
+  if (ty + th > height - 5) ty = height - th - 5;
+  tooltip.style("left", tx + "px").style("top", ty + "px");
+}
+
+// Hover: brief preview
+node.on("mouseenter", (event, d) => {
+  if (pinnedNode) return;
+  tooltip.html(tooltipContent(d, false)).classed("visible", true).classed("pinned", false);
+})
+.on("mousemove", event => {
+  if (pinnedNode) return;
+  const [mx, my] = d3.pointer(event, document.body);
+  const tw = tooltip.node().offsetWidth, th = tooltip.node().offsetHeight;
+  let tx = mx + 14, ty = my - th / 2;
+  if (tx + tw > width - 10) tx = mx - tw - 14;
+  if (ty < 5) ty = 5;
+  if (ty + th > height - 5) ty = height - th - 5;
+  tooltip.style("left", tx+"px").style("top", ty+"px");
+})
+.on("mouseleave", () => { if (!pinnedNode) tooltip.classed("visible", false); });
+
+// Legend collapse/expand (mobile only — the chip is display:none above the
+// breakpoint, so this listener simply never fires on desktop). State lives
+// here rather than in storage: the legend should start out of the way on
+// every visit, since the diagram is the point of the page.
+const legendEl = document.getElementById("legend");
+const legendToggle = document.getElementById("legend-toggle");
+
+function setLegendOpen(open) {
+  legendEl.classList.toggle("open", open);
+  legendToggle.setAttribute("aria-expanded", String(open));
+}
+
+legendToggle.addEventListener("click", event => {
+  event.stopPropagation();
+  setLegendOpen(!legendEl.classList.contains("open"));
+});
+
+// Click: pin popup with expanded content + highlight
+node.on("click", (event, d) => { event.stopPropagation(); pinNode(d); });
+// Tapping the diagram dismisses whatever is covering it — the pinned popup
+// and the expanded legend alike.
+svg.on("click", () => { unpin(); setLegendOpen(false); });
+
+function pinNode(d) {
+  pinnedNode = d;
+  visited.add(d.id);
+  tooltip.html(tooltipContent(d, true))
+    .classed("visible", true).classed("pinned", true);
+  positionTooltipAtNode(d);
+  highlightNode(d);
+}
+
+function unpin() {
+  pinnedNode = null;
+  tooltip.classed("visible", false).classed("pinned", false);
+  restState();
+}
+
+function clickNode(id) {
+  const d = nodes.find(n => n.id === id);
+  if (d) pinNode(d);
+}
+
+function highlightNode(d) {
+  const connected = new Set([d.id]);
+  edges.forEach(e => { if (e.source === d.id) connected.add(e.target); if (e.target === d.id) connected.add(e.source); });
+  node.attr("opacity", n => connected.has(n.id) ? 1 : visited.has(n.id) ? 0.3 : 0.12);
+  link.attr("opacity", e => (e.source === d.id || e.target === d.id) ? 1 : 0.05);
+}
+
+// Resting state: nothing pinned. Visited nodes stay visibly dimmed —
+// like a visited hyperlink — so you don't have to remember what you've
+// already read.
+function restState() {
+  node.attr("opacity", n => visited.has(n.id) ? 0.5 : 1);
+  link.attr("opacity", 1);
+}
+
+// Even row spacing makes the diagram taller than the viewport, so start
+// zoomed out to fit everything in frame. People zoom in from there.
+const contentTop = margin.top - 10;
+const contentBottom = axisY + 30;
+const contentLeft = margin.left - 20;
+const contentRight = width - margin.right + 20;
+const contentW = contentRight - contentLeft;
+const contentH = contentBottom - contentTop;
+const fitScale = Math.max(0.4, Math.min(4, Math.min(width / contentW, height / contentH) * 0.94));
+const fitTransform = d3.zoomIdentity
+  .translate(width / 2, height / 2)
+  .scale(fitScale)
+  .translate(-(contentLeft + contentRight) / 2, -(contentTop + contentBottom) / 2);
+svg.call(zoom.transform, fitTransform);
+
+window.clickNode = clickNode;
+window.nodes = nodes;
+</script>
+</body>
+</html>
