@@ -78,7 +78,49 @@
     color: var(--text-muted); margin-bottom: 6px;
   }
   .legend-item { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; line-height: 1.4; }
-  .legend-symbol { width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  /* Sized to the largest symbol (the 16px original-research ring). An SVG
+     with no viewBox clips to its CSS box rather than scaling, so a box
+     narrower than the drawing silently crops it — which is what flattened
+     the top and bottom of the ring when this was 14px. */
+  .legend-symbol { width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .legend-symbol svg { overflow: visible; }
+
+  /* The legend is reference material, not something you read continuously —
+     on a phone it was claiming roughly a third of the screen and burying
+     the diagram it's meant to explain. Below the breakpoint it collapses to
+     a chip you can tap open when you need it. Desktop is untouched: the
+     chip is display:none and the legend is always visible. */
+  #legend-toggle {
+    display: none;
+    position: absolute; top: 12px; right: 16px; z-index: 11;
+    align-items: center; gap: 6px;
+    background: var(--card-bg);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 7px 13px;
+    font-family: inherit;
+    font-size: 11px;
+    box-shadow: 0 2px 8px var(--card-shadow);
+    cursor: pointer;
+  }
+  #legend-toggle .chev { transition: transform 0.15s; font-size: 0.85em; }
+  #legend-toggle[aria-expanded="true"] .chev { transform: rotate(180deg); }
+
+  /* Two conditions, because width alone can't tell these cases apart. A
+     1600px-wide but portrait-shaped window (tablet, or a tall half-screen
+     window) has plenty of width yet the legend still eats a large share of
+     the visible diagram — so key off shape as well as size. Wide, landscape
+     windows keep the legend open; anything narrow OR portrait collapses it
+     to the chip. */
+  @media (max-width: 1100px), (max-aspect-ratio: 4/3) {
+    #legend-toggle { display: inline-flex; }
+    /* Hidden until the chip is tapped. When shown it sits just below the
+       chip and caps its own height so a long legend can't run off a short
+       viewport. */
+    #legend { display: none; top: 52px; max-width: calc(100vw - 32px); max-height: 60vh; overflow-y: auto; }
+    #legend.open { display: flex; flex-wrap: wrap; gap: 16px; }
+  }
 
   #tooltip {
     position: absolute; pointer-events: none;
@@ -123,8 +165,8 @@
   <div id="header">
     <h1>Citation network for the claim that "1 in 20,000 adjustments lead to stroke"</h1>
     <p>Each node is a publication that states the claim. Arrows point from the citing paper to its cited source. Red = claim made without a valid reference. Hover for details; click to explore.</p>
-    <p style="margin-top:4px; pointer-events:auto"><a href="citation-network.html" style="color:var(--highlight)">Switch to the current (vertical timeline) layout →</a></p>
   </div>
+  <button id="legend-toggle" type="button" aria-expanded="false" aria-controls="legend">Legend <span class="chev" aria-hidden="true">▾</span></button>
   <div id="legend">
     <div class="legend-col">
       <h3>Citation status</h3>
@@ -136,7 +178,7 @@
     <div class="legend-col">
       <h3>Source type</h3>
       <div class="legend-item"><div class="legend-symbol"><svg width="16" height="16"><circle cx="8" cy="8" r="7" fill="none" stroke="var(--highlight)" stroke-width="1.5"/><circle cx="8" cy="8" r="4.5" fill="var(--cited)" /></svg></div> Ring = original research</div>
-      <div class="legend-item" style="color:var(--text-muted); font-style:italic; max-width:180px;">Other shapes distinguish source type — click a node for details</div>
+      <div class="legend-item" style="color:var(--text-muted); font-style:italic; max-width:180px;">Click a node for source type and full citation</div>
     </div>
   </div>
   <div id="tooltip"></div>
@@ -570,9 +612,28 @@ node.on("mouseenter", (event, d) => {
 })
 .on("mouseleave", () => { if (!pinnedNode) tooltip.classed("visible", false); });
 
+// Legend collapse/expand (mobile only — the chip is display:none above the
+// breakpoint, so this listener simply never fires on desktop). State lives
+// here rather than in storage: the legend should start out of the way on
+// every visit, since the diagram is the point of the page.
+const legendEl = document.getElementById("legend");
+const legendToggle = document.getElementById("legend-toggle");
+
+function setLegendOpen(open) {
+  legendEl.classList.toggle("open", open);
+  legendToggle.setAttribute("aria-expanded", String(open));
+}
+
+legendToggle.addEventListener("click", event => {
+  event.stopPropagation();
+  setLegendOpen(!legendEl.classList.contains("open"));
+});
+
 // Click: pin popup with expanded content + highlight
 node.on("click", (event, d) => { event.stopPropagation(); pinNode(d); });
-svg.on("click", () => unpin());
+// Tapping the diagram dismisses whatever is covering it — the pinned popup
+// and the expanded legend alike.
+svg.on("click", () => { unpin(); setLegendOpen(false); });
 
 function pinNode(d) {
   pinnedNode = d;
