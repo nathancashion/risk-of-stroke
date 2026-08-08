@@ -152,6 +152,39 @@
   #tooltip a.tt-url { font-size: 11px; color: var(--highlight); text-decoration: none; word-break: break-all; }
   #tooltip a.tt-url:hover { text-decoration: underline; }
 
+  /* On a phone the pinned popup was anchored to the node it describes, which
+     put its left edge off-screen whenever that node sat near the left of the
+     viewport — the positioning code had no lower bound on x, so the text was
+     simply cut off. Below this width it becomes a bottom sheet instead: full
+     width, docked to the bottom, never clipped, and never covering the node
+     you just tapped. The !important overrides the inline left/top that the
+     positioning code writes for the desktop case. */
+  @media (max-width: 600px) {
+    #tooltip.pinned {
+      left: 0 !important; right: 0; top: auto !important; bottom: 0;
+      width: 100%; max-width: none;
+      max-height: 55vh;
+      border-radius: 12px 12px 0 0;
+      border-bottom: none;
+      padding-bottom: 24px;
+      box-shadow: 0 -4px 20px var(--card-shadow);
+    }
+    /* A sheet covering the lower half of the screen needs an obvious way
+       out; tapping the diagram still works, but that isn't discoverable
+       when most of the diagram is hidden behind the sheet. */
+    #tooltip.pinned .tt-close { display: flex; }
+  }
+  .tt-close {
+    display: none;
+    float: right;
+    align-items: center; justify-content: center;
+    width: 32px; height: 32px; margin: -4px -4px 0 10px;
+    border: none; border-radius: 50%;
+    background: var(--axis-light); color: var(--text-secondary);
+    font: 600 19px/1 -apple-system, BlinkMacSystemFont, sans-serif;
+    cursor: pointer;
+  }
+
   #instructions {
     position: absolute; bottom: 8px; left: 50%;
     transform: translateX(-50%);
@@ -582,7 +615,8 @@ const pubTypeLabel = { case_report: "Case report", review: "Review or systematic
 
 function tooltipContent(d, expanded) {
   const statusLabel = { original: "Original Data", cites_source: "Cites Source", no_citation: "No Citation Given", phantom: "Phantom Source" };
-  let html = `<div class="tt-header">${d.label} (${d.year})</div>`;
+  let html = expanded ? `<button class="tt-close" onclick="unpin()" aria-label="Close">×</button>` : "";
+  html += `<div class="tt-header">${d.label} (${d.year})</div>`;
   if (expanded) {
     html += `<div class="tt-meta">${pubTypeLabel[d.pubType]} · ${statusLabel[d.type]}</div>`;
     html += `<div class="tt-meta">${d.fullCite}</div>`;
@@ -617,7 +651,16 @@ function tooltipContent(d, expanded) {
   return html;
 }
 
+// Below this width the pinned popup is a bottom sheet laid out entirely by
+// CSS, so clear any inline offsets left over from a wider layout and let the
+// stylesheet own its position.
+const TOOLTIP_SHEET_MAX_WIDTH = 600;
+
 function positionTooltipAtNode(d) {
+  if (window.innerWidth <= TOOLTIP_SHEET_MAX_WIDTH) {
+    tooltip.style("left", null).style("top", null);
+    return;
+  }
   const transform = d3.zoomTransform(svg.node());
   const sx = transform.applyX(d.x);
   const sy = transform.applyY(d.y);
@@ -625,6 +668,9 @@ function positionTooltipAtNode(d) {
   const th = tooltip.node().offsetHeight;
   let tx = sx + 16, ty = sy - th / 2;
   if (tx + tw > width - 10) tx = sx - tw - 16;
+  // Flipping to the left of the node can push the popup past the left edge.
+  // There was no lower bound here, which is how the text got cut off.
+  if (tx < 10) tx = 10;
   if (ty < 5) ty = 5;
   if (ty + th > height - 5) ty = height - th - 5;
   tooltip.style("left", tx + "px").style("top", ty + "px");
@@ -641,6 +687,7 @@ node.on("mouseenter", (event, d) => {
   const tw = tooltip.node().offsetWidth, th = tooltip.node().offsetHeight;
   let tx = mx + 14, ty = my - th / 2;
   if (tx + tw > width - 10) tx = mx - tw - 14;
+  if (tx < 10) tx = 10;   // same left-edge clamp as the pinned popup
   if (ty < 5) ty = 5;
   if (ty + th > height - 5) ty = height - th - 5;
   tooltip.style("left", tx+"px").style("top", ty+"px");
@@ -721,6 +768,7 @@ const fitTransform = d3.zoomIdentity
 svg.call(zoom.transform, fitTransform);
 
 window.clickNode = clickNode;
+window.unpin = unpin;   // the mobile sheet's close button calls this from markup
 window.nodes = nodes;
 </script>
 </body>
