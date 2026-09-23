@@ -263,8 +263,16 @@ const nodes = [
     journal: "Canadian Journal of Neurological Sciences",
     fullCite: "Saeed, A. B., Shuaib, A., Emery, D., & Al-Sulaiti, G. (2000). Vertebral Artery Dissection: Warning Symptoms, Clinical Features and Prognosis in 26 Patients. Canadian Journal of Neurological Sciences / Journal Canadien Des Sciences Neurologiques, 27(4), 292\u2013296.",
     quote: null,
-    note: "Cited by Jones (2015) for '1 in 20,000' but contains NO risk estimate. Phantom source \u2014 see Jones's cites-for-claim for the incoming link.",
+    note: "Cited for '1 in 20,000' by Jones (2015), Almuaigel (2020) and Baddam (2025), but contains NO risk estimate. Phantom source \u2014 three separate papers point here for a number this paper never states.",
     type: "phantom", pubType: "case_report", cites: null, url: "https://doi.org/10.1017/S0317167100001025"
+  },
+  {
+    id: "diduro2001", label: "Di Duro", year: 2001,
+    journal: "Stroke",
+    fullCite: "Di Duro, J. O. (2001). Life-Threatening Complications From Spinal Manipulation Are Rare. Stroke, 32(10), 2440.",
+    quote: "Estimates of cerebrovascular events associated with cervical manipulation range from 0.1 to <strong>5.0 per 100 000</strong>.",
+    note: "Letter to the editor. Cites Assendelft (1996), which accurately cites Haynes (1994). The 5.0/100,000 upper bound is the same figure as 1 in 20,000, reached through an intact chain.",
+    type: "cites_source", pubType: "letter", cites: "assendelft1996", url: "https://www.ahajournals.org/doi/10.1161/str.32.10.2440-a"
   },
   {
     id: "mann2001", label: "Mann & Refshauge", year: 2001,
@@ -273,6 +281,14 @@ const nodes = [
     quote: "from <strong>one in 20,000 patients</strong> receiving cervical manipulation to one per million manipulative procedures (Vickers & Zollman, 1999)",
     note: "Cites Vickers & Zollman (1999) for the 1 in 20,000.",
     type: "cites_source", pubType: "review", cites: "vickers1999", url: "https://doi.org/10.1016/S0004-9514(14)60273-7"
+  },
+  {
+    id: "stevinson2001", label: "Stevinson et al.", year: 2001,
+    journal: "Journal of the Royal Society of Medicine",
+    fullCite: "Stevinson, C., Honan, W., Cooke, B., & Ernst, E. (2001). Neurological complications of cervical spine manipulation. Journal of the Royal Society of Medicine, 94(3), 107\u2013110.",
+    quote: "A survey of 9 neurologists (of whom 7 responded) and 17 chiropractors conducted in Perth, Western Australia, gave a figure of <strong>5 strokes per 100 000 neck patients</strong> treated over 5 years.",
+    note: "Cites Haynes (1994) directly and accurately \u2014 5/100,000 = 1/20,000 \u2014 and is unusual in this network for describing the underlying method (a survey of 7 responding neurologists and 17 chiropractors in Perth) rather than passing the bare number along. It also keeps the \'treated over 5 years\' window that most downstream citations drop, which matters: without it the figure reads as per-manipulation rather than per-patient over a period.",
+    type: "cites_source", pubType: "review", cites: "haynes1994", url: "https://doi.org/10.1177/014107680109400302"
   },
   {
     id: "gross2002", label: "Gross et al.", year: 2002,
@@ -339,6 +355,14 @@ const nodes = [
     type: "cites_source", pubType: "book", cites: "assendelft1996", url: "https://www.cambridge.org/core/books/treatmentrelated-stroke/stroke-after-chiropractic-manipulations/C4EF918806A0A49655CD263536B27B98"
   },
   {
+    id: "almuaigel2020", label: "Almuaigel et al.", year: 2020,
+    journal: "Cureus",
+    fullCite: "Almuaigel, M. F., Althwanay, A., & Alamri, A. (2020). Spontaneous Bilateral Dissection of the Vertebral Artery: A Case Report. Cureus, 12(7).",
+    quote: "It is estimated that <strong>1 in 20,000 spinal manipulations</strong> results in a vertebral artery dissection.",
+    note: "Cites Saeed (2000), which contains no risk estimate \u2014 a phantom source. Saeed is attached to the sentence that follows the estimate rather than to the estimate itself, so it is not certain it was intended as the reference for the figure.",
+    type: "cites_source", pubType: "case_report", cites: "saeed2000", url: "https://cureus.com/articles/36708-spontaneous-bilateral-dissection-of-the-vertebral-artery-a-case-report"
+  },
+  {
     id: "paul2020", label: "Paul & Kumar", year: 2020,
     journal: "Int J Contemporary Pediatrics",
     fullCite: "Paul, A. J., & Kumar, R. (2020). A rare case of ischaemic stroke following cervical spine manipulation in an adolescent girl. International Journal of Contemporary Pediatrics, 7(2), 445\u2013448.",
@@ -385,6 +409,14 @@ const nodes = [
     quote: "<strong>1 in 20,000 chiropractic neck adjustments</strong> results in an injury to vertebral arteries.",
     note: "Popular press. Cites Xia (2021), calling it 'a study in the journal Stroke.'",
     type: "cites_source", pubType: "news", cites: "xia2021", url: "https://www.thecut.com/article/neck-cracking-chiropractic-surgery-spine.html"
+  },
+  {
+    id: "baddam2025", label: "Baddam et al.", year: 2025,
+    journal: "Annals of Surgical Case Reports & Images",
+    fullCite: "Baddam, S., Patel, S., Thiriveedi, M., & Banka, A. V. (2025). A headache with high stakes: Isolated symptom of bilateral vertebral artery dissection following chiropractic manipulation. Annals of Surgical Case Reports & Images, 2(1), 1074.",
+    quote: "While the estimated risk of vertebral artery dissection following spinal manipulation is approximately <strong>1 in 20,000 manipulations</strong>, the exact incidence remains uncertain.",
+    note: "Cites Saeed (2000) for the figure, but Saeed provides no risk estimate \u2014 phantom source. The same broken link as Jones (2015) and Almuaigel (2020), a decade on.",
+    type: "cites_source", pubType: "case_report", cites: "saeed2000", url: "https://www.annscri.org/articles/SCR-1074.html"
   },
   {
     id: "aleyadeh2026", label: "Aleyadeh et al.", year: 2026,
@@ -576,7 +608,7 @@ let pinnedNode = null;
 const visited = new Set();
 const tooltip = d3.select("#tooltip");
 
-const pubTypeLabel = { case_report: "Case report", review: "Review or systematic review", original: "Original research", reference: "Reference work", book: "Book or textbook chapter", news: "News or popular press" };
+const pubTypeLabel = { case_report: "Case report", letter: "Letter to the editor", review: "Review or systematic review", original: "Original research", reference: "Reference work", book: "Book or textbook chapter", news: "News or popular press" };
 
 function tooltipContent(d, expanded) {
   const statusLabel = { original: "Original Data", cites_source: "Cites Source", no_citation: "No Citation Given", phantom: "Phantom Source" };
