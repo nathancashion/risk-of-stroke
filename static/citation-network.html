@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Citation Network: "1 in 20,000 adjustments → stroke"</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <style>
@@ -172,13 +172,19 @@
 
   @media (max-width: 600px) {
     #tooltip.pinned {
-      left: 0 !important; right: 0; top: auto !important; bottom: 0;
+      left: 0 !important; right: 0; top: auto !important;
+      bottom: 0;
+      bottom: env(safe-area-inset-bottom, 0);
       width: 100%; max-width: none;
       max-height: 55vh;
+      max-height: 55dvh;
       border-radius: 12px 12px 0 0;
       border-bottom: none;
-      padding-bottom: 24px;
+      padding-bottom: calc(24px + env(safe-area-inset-bottom, 0));
       box-shadow: 0 -4px 20px var(--card-shadow);
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
     }
     #tooltip.pinned .tt-close { display: flex; }
   }
@@ -270,9 +276,9 @@ const nodes = [
     journal: "Physical Therapy",
     fullCite: "Di Fabio (1999). Manipulation of the cervical spine: risks and benefits. Physical Therapy, 79(1), 50–65.",
     quote: "Other estimates of complications following chiropractic manipulation of the cervical spine have been in the range of <strong>1 in 200,000</strong> manipulations to 1 in 3 million manipulations.",
-    note: "Cites Haynes (1994) directly but misquotes it as 1 in 200,000 — Haynes actually states 5 in 100,000 (= 1 in 20,000), a 10x transcription error understating the risk.",
+    note: "Cites Haynes (1994) directly. States '1 in 200,000 manipulations' — likely a unit conversion from Haynes's '5 per 100,000 patients' using Haynes's own figure of ~2 cervical manipulations per patient per year (5/100,000 patients/yr ÷ 2 manip/patient = 1/200,000 manipulations). Not a transcription error, but a change of denominator from patients to manipulations.",
     type: "cites_source", pubType: "review", cites: "haynes1994", url: "https://academic.oup.com/ptj/article-abstract/79/1/50/2857770",
-    citeIntegrity: "misquoted"
+    citeIntegrity: null
   },
   {
     id: "vickers1999", label: "Vickers & Zollman", year: 1999,
@@ -432,7 +438,7 @@ const nodes = [
     journal: "Systematic Reviews",
     fullCite: "Nielsen, S. M., et al. (2017). Systematic Reviews, 6(1), 64.",
     quote: "the estimates for the incidence of SAEs ranges from <strong>1 in 20,000 manipulations</strong> to 1 in 250,000,000 manipulations",
-    note: "Overview of reviews. Cites both Gouveia (2009) and Assendelft (1996) for the 1 in 20,000 figure.",
+    note: "Overview of reviews. Its range starts from the figures it tabulates from Gouveia (2009), Assendelft (1996), and Gross et al. (2002).",
     type: "cites_source", pubType: "review", cites: "gouveia2009", url: "https://doi.org/10.1186/s13643-017-0458-y",
     citeIntegrity: null
   },
@@ -459,7 +465,7 @@ const nodes = [
     journal: "Stroke (conference abstract)",
     fullCite: "Xia, T. (2021). Stroke (conference abstract).",
     quote: "It is estimated that <strong>1 in 20,000 spinal manipulation</strong> results in vertebral artery aneurysm/dissection.",
-    note: "Conference abstract for a case report. No citation. Cannot provide a population-level estimate.",
+    note: "Conference abstract for a case report. No citation. Phrasing closely resembles Jones (2015), suggesting it as the likely uncited source — which itself cites phantom source Saeed (2000).",
     type: "no_citation", pubType: "case_report", cites: null, url: null,
     citeIntegrity: null
   },
@@ -522,6 +528,7 @@ const nodes = [
 // Extra edges for multi-citation nodes.
 const extraEdges = [
   { source: "nielsen2017", target: "assendelft1996", type: "cites" },
+  { source: "nielsen2017", target: "gross2002", type: "cites" },
   { source: "aleyadeh2026", target: "cassidy2008", type: "cites" },
   { source: "paul2020", target: "jones2015", type: "probable" }
 ];
@@ -550,12 +557,27 @@ extraEdges.forEach(e => { (childrenOf[e.target] ??= []).push(e.source); });
 
 let nextLeafColumn = 0;
 const laneDefs = {};
+const MIN_YEAR_GAP = 6;
+
+// Check if a leaf can share an existing column (year separation only)
+function leafColumnHasRoom(col, year) {
+  return nodes.every(n => {
+    const c = laneDefs[n.id];
+    return c == null || Math.abs(c - col) >= 0.6 || Math.abs(n.year - year) >= MIN_YEAR_GAP;
+  });
+}
 
 function assignColumn(id) {
   if (laneDefs[id] !== undefined) return laneDefs[id];
   const kids = childrenOf[id];
   if (!kids || kids.length === 0) {
-    laneDefs[id] = nextLeafColumn++;
+    // Try to reuse an existing column before allocating a new one
+    let col = -1;
+    for (let c = 0; c < nextLeafColumn; c++) {
+      if (leafColumnHasRoom(c, nodeMap[id].year)) { col = c; break; }
+    }
+    if (col === -1) col = nextLeafColumn++;
+    laneDefs[id] = col;
   } else {
     const kidCols = kids.map(k => assignColumn(k));
     laneDefs[id] = (Math.min(...kidCols) + Math.max(...kidCols)) / 2;
@@ -577,7 +599,6 @@ nodes.forEach(n => {
 rootProcessingOrder.forEach(id => assignColumn(id));
 
 // Isolated nodes: slot into existing columns where there's room
-const MIN_YEAR_GAP = 3;
 const edgeCorridors = [];
 nodes.forEach(n => {
   if (n.cites && laneDefs[n.id] !== undefined) {
