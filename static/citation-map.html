@@ -28,7 +28,13 @@
     --rule: #ddd;
     --grid: #e0e0e0;
     --cited: #222;
-    --red: #c0392b;
+    /* roma (Scientific Colour Maps, Crameri 2018): blue = traceable to Haynes,
+       ochre = phantom source, brown = no path to the data */
+    --trace-strong: #033198;
+    --trace: #2C85BD;
+    --phantom: #AB7525;
+    --phantom-ink: #9D5818;
+    --untraced: #7F1A01;
     --blue: #2563eb;
     --edge: #777;
     --shadow: rgba(0, 0, 0, 0.15);
@@ -41,7 +47,8 @@
       color-scheme: dark;
       --paper: #1a1a1a; --panel: #252525; --ink: #e0e0e0; --ink-2: #aaa;
       --muted: #666; --faint: #666; --rule: #333; --grid: #2a2a2a;
-      --cited: #ccc; --red: #e74c3c; --blue: #60a5fa; --edge: #555;
+      --cited: #ccc; --trace-strong: #51B7D0; --trace: #308FC1; --phantom: #A3651E;
+      --phantom-ink: #B68C32; --untraced: #C4AA4A; --blue: #60a5fa; --edge: #555;
       --shadow: rgba(0, 0, 0, 0.5);
     }
   }
@@ -49,7 +56,8 @@
     color-scheme: dark;
     --paper: #1a1a1a; --panel: #252525; --ink: #e0e0e0; --ink-2: #aaa;
     --muted: #666; --faint: #666; --rule: #333; --grid: #2a2a2a;
-    --cited: #ccc; --red: #e74c3c; --blue: #60a5fa; --edge: #555;
+    --cited: #ccc; --trace-strong: #51B7D0; --trace: #308FC1; --phantom: #A3651E;
+      --phantom-ink: #B68C32; --untraced: #C4AA4A; --blue: #60a5fa; --edge: #555;
     --shadow: rgba(0, 0, 0, 0.5);
   }
   * { box-sizing: border-box; }
@@ -139,7 +147,7 @@
   .key li { display: grid; grid-template-columns: 26px 1fr; align-items: center; font-size: 13.5px; color: var(--ink-2); line-height: 1.35; }
   .key svg { overflow: visible; }
   .key li.is-text { display: block; }
-  .figure-sample { font: 600 12.5px var(--narrow); color: var(--red); }
+  .figure-sample { font: 600 12.5px var(--narrow); color: var(--untraced); }
   .key .aside { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
   .controls { display: grid; gap: 8px; }
   .control { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -161,31 +169,40 @@
   /* --- map --- */
   .grid-line { stroke: var(--grid); stroke-width: 0.5; }
   .year-label { font: 500 14px var(--narrow); fill: var(--faint); font-variant-numeric: tabular-nums; }
-  .chart { --edge-dead: color-mix(in srgb, var(--red) 62%, var(--paper)); }
-  .edge { fill: none; stroke: var(--edge); stroke-width: 1.25; stroke-linejoin: round; transition: opacity 0.15s, stroke 0.15s; }
-  .edge.is-dead { stroke: var(--edge-dead); }
+  .chart {
+    --edge-phantom: color-mix(in srgb, var(--phantom) 80%, var(--paper));
+    --edge-stray: color-mix(in srgb, var(--untraced) 70%, var(--paper));
+  }
+  .edge { fill: none; stroke: var(--trace); stroke-width: 1.25; stroke-linejoin: round; transition: opacity 0.15s, stroke 0.15s; }
+  .edge.is-phantom { stroke: var(--edge-phantom); }
+  .edge.is-stray { stroke: var(--edge-stray); }
   .edge.is-doubtful { stroke-dasharray: 4 3; }
   .edge.is-active { stroke: var(--ink); stroke-width: 1.5; }
-  .edge.is-dead.is-active { stroke: var(--red); }
-  .arrow { fill: var(--edge); transition: opacity 0.15s; }
-  .arrow.is-dead { fill: var(--edge-dead); }
+  .edge.is-phantom.is-active { stroke: var(--phantom); }
+  .edge.is-stray.is-active { stroke: var(--untraced); }
+  .arrow { fill: var(--trace); transition: opacity 0.15s; }
+  .arrow.is-phantom { fill: var(--edge-phantom); }
+  .arrow.is-stray { fill: var(--edge-stray); }
   .arrow.is-active { fill: var(--ink); }
-  .arrow.is-dead.is-active { fill: var(--red); }
   .group-bracket { fill: none; stroke: var(--faint); stroke-width: 1; }
-  .group-bracket.is-dead { stroke: var(--red); }
+  .group-bracket.is-traced { stroke: var(--trace-strong); }
+  .group-bracket.is-phantom { stroke: var(--phantom); }
+  .group-bracket.is-stray { stroke: var(--untraced); }
   .group-caption { font: 500 14px var(--narrow); fill: var(--ink-2); }
-  .group-caption.is-dead { fill: var(--red); }
+  .group-caption.is-traced { fill: var(--trace-strong); }
+  .group-caption.is-phantom { fill: var(--phantom-ink); }
+  .group-caption.is-stray { fill: var(--untraced); }
   .node { cursor: pointer; transition: opacity 0.15s; outline: none; }
   .node .dot { fill: var(--cited); }
-  .node .dot.is-unreferenced { fill: var(--red); }
-  .node .phantom { fill: var(--paper); stroke: var(--red); stroke-width: 1.5; stroke-dasharray: 2.6 2; }
-  .node .ring { fill: none; stroke: var(--blue); stroke-width: 1.5; }
+  .node .dot.is-unreferenced { fill: var(--untraced); }
+  .node .phantom { fill: var(--paper); stroke: var(--phantom); stroke-width: 1.5; stroke-dasharray: 2.6 2; }
+  .node .ring { fill: none; stroke: var(--trace-strong); stroke-width: 1.5; }
   .node .hit { fill: transparent; }
   .node:focus-visible .hit { stroke: var(--blue); stroke-width: 2; }
   .node.is-visited .dot { opacity: 0.55; }
   .node-label { font: 500 15px var(--narrow); fill: var(--ink-2); pointer-events: none; }
   .node-label.is-source { font-weight: 600; fill: var(--ink); }
-  .node-label .figure { font-weight: 600; fill: var(--red); }
+  .node-label .figure { font-weight: 600; fill: var(--untraced); }
   .node.is-pinned .node-label { fill: var(--ink); font-weight: 600; }
 
   /* --- details card --- */
@@ -213,7 +230,7 @@
   .card h3 { margin: 0; font: 600 15.5px/1.3 var(--sans); }
   .card .journal { margin: 2px 0 0; font: italic 400 15px/1.35 var(--serif); color: var(--muted); }
   .card .status { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
-  .card .status.is-bad, .card .figure-note { color: var(--red); }
+  .card .status.is-bad, .card .figure-note { color: var(--untraced); }
   .card .figure-note { margin: 4px 0 0; font-size: 12.5px; font-weight: 600; }
   .card .unit-note { margin: 4px 0 0; font-size: 12.5px; font-weight: 500; color: var(--ink-2); }
   .card blockquote {
@@ -222,10 +239,10 @@
     font: 400 16.5px/1.45 var(--serif); color: var(--ink-2);
   }
   .card blockquote strong { font-weight: 500; color: var(--ink); }
-  .card blockquote.is-missing { border-color: var(--red); font-style: italic; }
+  .card blockquote.is-missing { border-color: var(--untraced); font-style: italic; }
   .card .note { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--ink-2); }
   .card .leads { margin: 10px 0 0; font-size: 13.5px; line-height: 1.45; color: var(--ink); }
-  .card .leads.is-dead { color: var(--red); }
+  .card .leads.is-dead { color: var(--untraced); }
   .card .full-cite { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid var(--rule); font-size: 12.5px; color: var(--muted); }
   .card a { color: var(--blue); text-underline-offset: 2px; }
   .card h4 { margin: 14px 0 4px; font: 600 12.5px/1.3 var(--sans); color: var(--ink); }
@@ -237,7 +254,7 @@
     padding: 5px 8px; margin: 0 -8px; cursor: pointer;
   }
   .card .links button:hover { background: var(--grid); color: var(--ink); }
-  .card .links .tag { color: var(--red); }
+  .card .links .tag { color: var(--untraced); }
   @media (prefers-reduced-motion: reduce) {
     .card, .edge, .node, .arrow { transition: none; }
   }
@@ -310,11 +327,12 @@
         <summary>Reading the map</summary>
         <ul>
           <li><svg width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="var(--cited)"/></svg> Gives a reference for the figure</li>
-          <li><svg width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="var(--red)"/></svg> Gives no reference</li>
-          <li><svg width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="none" stroke="var(--red)" stroke-width="1.5" stroke-dasharray="2.6 2"/></svg> Cited as the source, but never states the figure</li>
-          <li><svg width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="8" fill="none" stroke="var(--blue)" stroke-width="1.5"/><circle cx="8" cy="8" r="4.5" fill="var(--cited)"/></svg> Original research paper (only Haynes has data for this figure)</li>
-          <li><svg width="22" height="16" aria-hidden="true"><line x1="0" y1="8" x2="22" y2="8" stroke="var(--edge)" stroke-width="1.5"/></svg> Leads back to original data</li>
-          <li><svg width="22" height="16" aria-hidden="true"><line x1="0" y1="8" x2="22" y2="8" stroke="color-mix(in srgb, var(--red) 62%, var(--paper))" stroke-width="1.5"/></svg> Leads to a dead end</li>
+          <li><svg width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="var(--untraced)"/></svg> Gives no reference</li>
+          <li><svg width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="none" stroke="var(--phantom)" stroke-width="1.5" stroke-dasharray="2.6 2"/></svg> Cited as the source, but never states the figure</li>
+          <li><svg width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="8" fill="none" stroke="var(--trace-strong)" stroke-width="1.5"/><circle cx="8" cy="8" r="4.5" fill="var(--cited)"/></svg> Original research paper (only Haynes has data for this figure)</li>
+          <li><svg width="22" height="16" aria-hidden="true"><line x1="0" y1="8" x2="22" y2="8" stroke="var(--trace)" stroke-width="1.5"/></svg> Leads back to original data</li>
+          <li><svg width="22" height="16" aria-hidden="true"><line x1="0" y1="8" x2="22" y2="8" stroke="color-mix(in srgb, var(--phantom) 80%, var(--paper))" stroke-width="1.5"/></svg> Leads to a phantom source</li>
+          <li><svg width="22" height="16" aria-hidden="true"><line x1="0" y1="8" x2="22" y2="8" stroke="color-mix(in srgb, var(--untraced) 70%, var(--paper))" stroke-width="1.5"/></svg> Leads to a dead end with no source</li>
           <li><svg width="22" height="16" aria-hidden="true"><line x1="0" y1="8" x2="22" y2="8" stroke="var(--edge)" stroke-width="1.5" stroke-dasharray="4 3"/></svg> Doubtful link: misquoted, or the source is only probable</li>
           <li class="is-text"><span><span class="figure-sample">1 in 10,000</span> beside a name: the paper states a different figure</span></li>
         </ul>
@@ -683,11 +701,11 @@ const svg = d3.select("#map-svg");
 const defs = svg.append("defs");
 
 // Arrow markers
-["normal","dead","doubtful"].forEach(cls => {
+["normal","phantom","stray"].forEach(cls => {
   defs.append("marker").attr("id",`arr-${cls}`)
     .attr("viewBox","0 0 10 10").attr("refX",10).attr("refY",5)
     .attr("markerWidth",8).attr("markerHeight",8).attr("orient","auto-start-reverse")
-    .append("path").attr("d","M0,0 L10,5 L0,10 Z").attr("class",`arrow ${cls==="dead"?"is-dead":""}`);
+    .append("path").attr("d","M0,0 L10,5 L0,10 Z").attr("class",`arrow ${cls==="normal"?"":"is-"+cls}`);
 });
 
 const gAll = svg.append("g");
@@ -855,8 +873,9 @@ function render() {
     const sp = positions[e.source], tp = positions[e.target];
     if (!sp || !tp) return;
     const dead = edgeIsDead(e), doubtful = edgeIsDoubtful(e);
-    const cls = ["edge", dead?"is-dead":"", doubtful?"is-doubtful":""].filter(Boolean).join(" ");
-    const marker = doubtful ? "url(#arr-doubtful)" : dead ? "url(#arr-dead)" : "url(#arr-normal)";
+    const oc = dead ? getOutcome(e.source) : "";
+    const cls = ["edge", dead?"is-dead is-"+oc:"", doubtful?"is-doubtful":""].filter(Boolean).join(" ");
+    const marker = dead ? `url(#arr-${oc})` : "url(#arr-normal)";
     gEdges.append("path").attr("d", routeEdge(sp, tp)).attr("class", cls)
       .attr("marker-end", marker).attr("data-source", e.source).attr("data-target", e.target);
   });
@@ -911,8 +930,8 @@ function render() {
       const y1 = PAD_L + grp.maxLane * gap + margin;
       const x = PAD_T - 30;
       gBrackets.append("path").attr("d", `M${x+6},${y0} L${x},${y0} L${x},${y1} L${x+6},${y1}`)
-        .attr("class",`group-bracket${dead?" is-dead":""}`);
-      gBrackets.append("text").attr("class",`group-caption${dead?" is-dead":""}`)
+        .attr("class",`group-bracket is-${grp.outcome}${dead?" is-dead":""}`);
+      gBrackets.append("text").attr("class",`group-caption is-${grp.outcome}${dead?" is-dead":""}`)
         .attr("transform",`translate(${x-10},${(y0+y1)/2}) rotate(-90)`)
         .attr("text-anchor","middle").text(groupLabels[grp.outcome]||grp.outcome);
     } else {
@@ -920,8 +939,8 @@ function render() {
       const x1 = PAD_L + grp.maxLane * gap + margin;
       const y = PAD_T - 26;
       gBrackets.append("path").attr("d", `M${x0},${y+6} L${x0},${y} L${x1},${y} L${x1},${y+6}`)
-        .attr("class",`group-bracket${dead?" is-dead":""}`);
-      gBrackets.append("text").attr("class",`group-caption${dead?" is-dead":""}`)
+        .attr("class",`group-bracket is-${grp.outcome}${dead?" is-dead":""}`);
+      gBrackets.append("text").attr("class",`group-caption is-${grp.outcome}${dead?" is-dead":""}`)
         .attr("x",(x0+x1)/2).attr("y",y-6).attr("text-anchor","middle").text(groupLabels[grp.outcome]||grp.outcome);
     }
   });

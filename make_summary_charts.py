@@ -63,12 +63,16 @@ def read_counts(page):
 def make_charts(c, outdir):
     categories = ['Cites Haynes\ndirectly', 'Traced through\nintermediaries', 'Phantom\ncitations', 'No citation\nprovided']
     values = [c['direct'], c['intermediaries'], c['phantom'], c['stray']]
-    colors = ['#1a6b3c', '#2d2d2d', '#c0392b', '#e74c3c']
+    # roma (Scientific Colour Maps, Crameri 2018), two symmetric steps per arm with the
+    # neutral centre skipped: blue = traceable to Haynes, brown = not traceable, darker
+    # = further from the divide. Checked for normal, protan, deutan and tritan vision.
+    colors = ['#033198', '#2C85BD', '#AB7525', '#7F1A01']
     reach = c['direct'] + c['intermediaries']
 
     title_text = '"One in 20,000 neck adjustments leads to a stroke."\nWhere does the number lead back to?'
     footnote = (f'Of {c["total"]} papers total; Haynes (1994) is the original source, excluded from bars.\n'
-                'Source: claim-specific citation tracing (cf. Greenberg 2009).')
+                'Source: claim-specific citation tracing (cf. Greenberg 2009).\n'
+                'Colours: roma, Scientific Colour Maps (Crameri 2018).')
 
     # Value axis leaves room above the tallest bar for its number and the bracket
     vmax = max(values)
@@ -101,6 +105,7 @@ def make_charts(c, outdir):
         ax.tick_params(axis='x', labelsize=tick_fs, colors='#333333')
         ax.tick_params(axis='y', labelsize=tick_fs - 1, colors='#666666')
         ax.grid(axis='y', color='#e0e0e0', linewidth=0.6, zorder=0)
+        ax.axvline(1.5, color='#bbbbbb', lw=0.8, ls=(0, (3, 3)), zorder=1)
         ax.plot([0, 1], [brace_at, brace_at], color='#888888', lw=1, clip_on=False)
         ax.plot([0, 0], [brace_at - 0.3, brace_at], color='#888888', lw=1, clip_on=False)
         ax.plot([1, 1], [brace_at - 0.3, brace_at], color='#888888', lw=1, clip_on=False)
@@ -121,6 +126,7 @@ def make_charts(c, outdir):
         ax.tick_params(axis='y', labelsize=tick_fs, colors='#333333')
         ax.tick_params(axis='x', labelsize=tick_fs - 1, colors='#666666')
         ax.grid(axis='x', color='#e0e0e0', linewidth=0.6, zorder=0)
+        ax.axhline(1.5, color='#bbbbbb', lw=0.8, ls=(0, (3, 3)), zorder=1)
         # Reversed order: "Traced through intermediaries" is y=2, "Cites Haynes directly" y=3
         y_top, y_bot, bx = 2, 3, brace_at
         ax.plot([bx, bx], [y_top - 0.25, y_bot + 0.25], color='#888888', lw=1, clip_on=False)
@@ -130,10 +136,10 @@ def make_charts(c, outdir):
                 ha='left', va='center', fontsize=foot_fs, color='#666666', style='italic')
         finish(fig, ax, title_fs, foot_fs, rect, suffix)
 
-    vertical((9, 5), 14, 22, 9, [0, 0.07, 1, 1], '16x9')
-    vertical((8, 6), 13, 20, 9, [0, 0.06, 1, 1], '4x3')
-    vertical((7, 7), 13, 20, 9, [0, 0.05, 1, 1], '1x1')
-    horizontal((5, 8.9), 12, 18, 8, [0, 0.04, 1, 1], '9x16')
+    vertical((9, 5), 14, 22, 9, [0, 0.10, 1, 1], '16x9')
+    vertical((8, 6), 13, 20, 9, [0, 0.085, 1, 1], '4x3')
+    vertical((7, 7), 13, 20, 9, [0, 0.075, 1, 1], '1x1')
+    horizontal((5, 8.9), 12, 18, 8, [0, 0.055, 1, 1], '9x16')
 
 
 def main():
