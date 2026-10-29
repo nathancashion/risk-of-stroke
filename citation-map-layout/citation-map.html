@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Where "1 in 20,000" comes from — citation map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<script>
+  try {
+    const t = localStorage.getItem("citation-map-theme");
+    if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+  } catch (e) {}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<!-- Lane layout, routing and label placement. Keep this file next to the page. -->
+<script src="citation-layout.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --paper: #fff;
+    --panel: #fff;
+    --ink: #1a1a1a;
+    --ink-2: #555;
+    --muted: #888;
+    --faint: #999;
+    --rule: #ddd;
+    --grid: #e0e0e0;
+    --cited: #222;
+    --red: #c0392b;
+    --blue: #2563eb;
+    --edge: #777;
+    --shadow: rgba(0, 0, 0, 0.15);
+    --serif: "Newsreader", Georgia, "Times New Roman", serif;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --narrow: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --paper: #1a1a1a; --panel: #252525; --ink: #e0e0e0; --ink-2: #aaa;
+      --muted: #666; --faint: #666; --rule: #333; --grid: #2a2a2a;
+      --cited: #ccc; --red: #e74c3c; --blue: #60a5fa; --edge: #555;
+      --shadow: rgba(0, 0, 0, 0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper: #1a1a1a; --panel: #252525; --ink: #e0e0e0; --ink-2: #aaa;
+    --muted: #666; --faint: #666; --rule: #333; --grid: #2a2a2a;
+    --cited: #ccc; --red: #e74c3c; --blue: #60a5fa; --edge: #555;
+    --shadow: rgba(0, 0, 0, 0.5);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--paper); color: var(--ink);
+    font: 400 15px/1.5 var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* --- page frame --- */
+  .page {
+    display: grid;
+    grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+    height: 100vh; height: 100dvh;
+  }
+  .sidebar {
+    display: flex; flex-direction: column; min-height: 0;
+    border-right: 1px solid var(--rule);
+  }
+  .sidebar-scroll {
+    flex: 1; min-height: 0; overflow-y: auto;
+    scrollbar-width: thin; scrollbar-color: transparent transparent;
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+    padding: 36px 30px 28px;
+    display: flex; flex-direction: column; gap: 26px;
+  }
+  .sidebar-scroll:hover { scrollbar-color: var(--rule) transparent; }
+  .sidebar-scroll::-webkit-scrollbar { width: 6px; }
+  .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+  .sidebar-scroll::-webkit-scrollbar-thumb { background: transparent; border-radius: 3px; }
+  .sidebar-scroll:hover::-webkit-scrollbar-thumb { background: var(--rule); }
+  .sidebar-foot {
+    padding: 16px 30px 20px; border-top: 1px solid var(--rule);
+    display: grid; gap: 14px;
+  }
+  .chart { position: relative; min-width: 0; min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--rule) transparent; }
+  .chart > svg { display: block; width: 100%; cursor: default; }
+  .chart > svg:active { cursor: default; }
+  .map-tools { position: absolute; top: 12px; left: 12px; z-index: 5; display: flex; gap: 4px; }
+  .map-tools button {
+    min-width: 30px; height: 30px; padding: 0 9px;
+    font: 500 14px/1 var(--sans); color: var(--ink-2);
+    background: var(--panel); border: 1px solid var(--rule);
+    border-radius: 6px; cursor: pointer;
+  }
+  .map-tools button[data-zoom="fit"] { font-size: 12.5px; }
+  .map-tools .panel-toggle { display: inline-flex; align-items: center; justify-content: center; padding: 0; width: 30px; }
+  .map-tools .tools-gap { width: 6px; }
+  .page.is-collapsed { grid-template-columns: 0 minmax(0, 1fr); }
+  .page.is-collapsed .sidebar { visibility: hidden; overflow: hidden; border-right: 0; }
+  .page.is-collapsed .panel-chevron { transform: rotate(180deg); transform-origin: 9.5px 8px; }
+  .map-tools button:hover { color: var(--ink); border-color: var(--faint); }
+
+  /* --- story column --- */
+  .claim {
+    margin: 0; font-family: var(--serif); font-weight: 400;
+    font-size: clamp(30px, 2.6vw, 40px); line-height: 1.08;
+    letter-spacing: -0.012em; text-wrap: balance;
+  }
+  .claim q { quotes: "\201C" "\201D"; }
+  .claim q::before { margin-left: -0.42em; }
+  .dek { margin: 12px 0 0; font-size: 16px; color: var(--ink-2); max-width: 34em; }
+  .findings {
+    margin: 0; font-family: var(--serif); font-size: 18px;
+    line-height: 1.5; color: var(--ink); font-variant-numeric: lining-nums;
+  }
+  .findings b { font-weight: 500; }
+  .stops h2, .key summary {
+    margin: 0 0 10px; font: 600 13px/1.3 var(--sans); color: var(--ink);
+  }
+  .stops ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .stop {
+    display: block; width: 100%; text-align: left; font: inherit;
+    color: var(--ink); background: var(--panel);
+    border: 1px solid var(--rule); border-radius: 8px;
+    padding: 9px 12px 10px; cursor: pointer;
+  }
+  .stop:hover { border-color: var(--faint); }
+  .stop[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 3px 0 0 var(--ink); }
+  .stop b { display: block; font: 600 13.5px/1.3 var(--sans); }
+  .stop span { display: block; margin-top: 2px; font-size: 12.5px; line-height: 1.4; color: var(--ink-2); }
+  .key summary { list-style: none; cursor: default; pointer-events: none; }
+  .key summary::-webkit-details-marker { display: none; }
+  .key ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+  .key li { display: grid; grid-template-columns: 26px 1fr; align-items: center; font-size: 13.5px; color: var(--ink-2); line-height: 1.35; }
+  .key svg { overflow: visible; }
+  .key li.is-text { display: block; }
+  .figure-sample { font: 600 12.5px var(--narrow); color: var(--red); }
+  .key .aside { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+  .controls { display: grid; gap: 8px; }
+  .control { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .control-label { font-size: 13.5px; color: var(--ink-2); }
+  .seg {
+    display: inline-flex; padding: 2px;
+    border: 1px solid var(--rule); border-radius: 8px; background: var(--panel);
+  }
+  .seg button {
+    font: 500 13px/1 var(--sans); color: var(--muted);
+    background: none; border: 0; border-radius: 6px;
+    padding: 7px 12px; cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+  .seg button:not([aria-pressed="true"]):hover { color: var(--ink); }
+  button:focus-visible, summary:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+  .hint { margin: 0; font-size: 12.5px; color: var(--muted); }
+
+  /* --- map --- */
+  .grid-line { stroke: var(--grid); stroke-width: 0.5; }
+  .year-label { font: 500 14px var(--narrow); fill: var(--faint); font-variant-numeric: tabular-nums; }
+  .chart { --edge-dead: color-mix(in srgb, var(--red) 62%, var(--paper)); }
+  .edge { fill: none; stroke: var(--edge); stroke-width: 1.25; stroke-linejoin: round; transition: opacity 0.15s, stroke 0.15s; }
+  .edge.is-dead { stroke: var(--edge-dead); }
+  .edge.is-doubtful { stroke-dasharray: 4 3; }
+  .edge.is-active { stroke: var(--ink); stroke-width: 1.5; }
+  .edge.is-dead.is-active { stroke: var(--red); }
+  .arrow { fill: var(--edge); transition: opacity 0.15s; }
+  .arrow.is-dead { fill: var(--edge-dead); }
+  .arrow.is-active { fill: var(--ink); }
+  .arrow.is-dead.is-active { fill: var(--red); }
+  .group-bracket { fill: none; stroke: var(--faint); stroke-width: 1; }
+  .group-bracket.is-dead { stroke: var(--red); }
+  .group-caption { font: 500 14px var(--narrow); fill: var(--ink-2); }
+  .group-caption.is-dead { fill: var(--red); }
+  .node { cursor: pointer; transition: opacity 0.15s; outline: none; }
+  .node .dot { fill: var(--cited); }
+  .node .dot.is-unreferenced { fill: var(--red); }
+  .node .phantom { fill: var(--paper); stroke: var(--red); stroke-width: 1.5; stroke-dasharray: 2.6 2; }
+  .node .ring { fill: none; stroke: var(--blue); stroke-width: 1.5; }
+  .node .hit { fill: transparent; }
+  .node:focus-visible .hit { stroke: var(--blue); stroke-width: 2; }
+  .node.is-visited .dot { opacity: 0.55; }
+  .node-label { font: 500 15px var(--narrow); fill: var(--ink-2); pointer-events: none; }
+  .node-label.is-source { font-weight: 600; fill: var(--ink); }
+  .node-label .figure { font-weight: 600; fill: var(--red); }
+  .node.is-pinned .node-label { fill: var(--ink); font-weight: 600; }
+
+  /* --- details card --- */
+  .card {
+    position: fixed; z-index: 20;
+    width: min(360px, calc(100vw - 24px));
+    max-height: min(70vh, calc(100vh - 24px));
+    overflow-y: auto; padding: 16px 18px 18px;
+    background: var(--panel); color: var(--ink);
+    border: 1px solid var(--rule); border-radius: 10px;
+    box-shadow: 0 14px 36px var(--shadow);
+    pointer-events: none; opacity: 0; transition: opacity 0.12s;
+  }
+  .card.is-visible { opacity: 1; }
+  .card.is-pinned { pointer-events: auto; }
+  .card-close {
+    float: right; display: none;
+    width: 30px; height: 30px; margin: -6px -8px 4px 8px;
+    border: 0; border-radius: 50%;
+    background: var(--grid); color: var(--ink-2);
+    font: 500 18px/1 var(--sans); cursor: pointer;
+  }
+  .card.is-pinned .card-close { display: block; }
+  .card h3 { margin: 0; font: 600 15.5px/1.3 var(--sans); }
+  .card .journal { margin: 2px 0 0; font: italic 400 15px/1.35 var(--serif); color: var(--muted); }
+  .card .status { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
+  .card .status.is-bad, .card .figure-note { color: var(--red); }
+  .card .figure-note { margin: 4px 0 0; font-size: 12.5px; font-weight: 600; }
+  .card .unit-note { margin: 4px 0 0; font-size: 12.5px; font-weight: 500; color: var(--ink-2); }
+  .card blockquote {
+    margin: 12px 0; padding: 0 0 0 12px;
+    border-left: 2px solid var(--blue);
+    font: 400 16.5px/1.45 var(--serif); color: var(--ink-2);
+  }
+  .card blockquote strong { font-weight: 500; color: var(--ink); }
+  .card blockquote.is-missing { border-color: var(--red); font-style: italic; }
+  .card .note { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--ink-2); }
+  .card .leads { margin: 10px 0 0; font-size: 13.5px; line-height: 1.45; color: var(--ink); }
+  .card .leads.is-dead { color: var(--red); }
+  .card .full-cite { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid var(--rule); font-size: 12.5px; color: var(--muted); }
+  .card a { color: var(--blue); text-underline-offset: 2px; }
+  .card h4 { margin: 14px 0 4px; font: 600 12.5px/1.3 var(--sans); color: var(--ink); }
+  .card .links { list-style: none; margin: 0; padding: 0; }
+  .card .links button {
+    display: block; width: 100%; text-align: left;
+    font: 400 13.5px/1.35 var(--sans); color: var(--ink-2);
+    background: none; border: 0; border-radius: 6px;
+    padding: 5px 8px; margin: 0 -8px; cursor: pointer;
+  }
+  .card .links button:hover { background: var(--grid); color: var(--ink); }
+  .card .links .tag { color: var(--red); }
+  @media (prefers-reduced-motion: reduce) {
+    .card, .edge, .node, .arrow { transition: none; }
+  }
+
+  /* --- narrow screens --- */
+  @media (max-width: 960px) {
+    .page { display: flex; flex-direction: column; height: auto; }
+    .sidebar, .sidebar-scroll { display: contents; -webkit-mask-image: none; mask-image: none; }
+    .masthead { order: 1; padding: 24px 16px 18px; }
+    .claim q::before { margin-left: 0; }
+    .chart { order: 2; overflow: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--rule) transparent; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); height: 65vh; height: 65dvh; }
+    .chart > svg { touch-action: pan-x pan-y; cursor: default; display: block; }
+    .chart > svg:active { cursor: default; }
+    .map-tools { display: none; }
+    .chart > svg { width: auto; height: auto; min-height: 0; }
+    .page.is-collapsed .sidebar { visibility: visible; overflow: visible; }
+    .sidebar-foot { order: 3; padding: 14px 16px 6px; border-top: 0; }
+    .sidebar-foot .control:has([data-orientation]), .sidebar-foot .control:has([data-sort]) { display: none; }
+    .findings { order: 4; padding: 16px 16px 0; }
+    .stops { order: 5; padding: 20px 16px 0; }
+    .key { order: 6; padding: 20px 16px 36px; }
+    .key summary { pointer-events: auto; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+    .key summary::after { content: "▾"; font-size: 0.85em; color: var(--muted); transition: transform 0.15s; }
+    .key[open] summary::after { transform: rotate(180deg); }
+    .card {
+      left: 8px !important; right: 8px !important; top: auto !important;
+      bottom: 0; bottom: env(safe-area-inset-bottom, 0);
+      width: auto; max-width: none;
+      max-height: 55vh; max-height: 55dvh;
+      border-radius: 12px 12px 0 0; border-bottom: none;
+      padding-bottom: calc(24px + env(safe-area-inset-bottom, 0));
+      box-shadow: 0 -4px 20px var(--shadow);
+      overflow-y: auto; -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+    }
+    .card.is-pinned .card-close { display: flex; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-scroll">
+      <header class="masthead">
+        <h1 class="claim"><q>One in 20,000 neck adjustments leads to a stroke.</q></h1>
+        <p class="dek">Where does that number come from? This map follows every publication that repeats it back through the sources it cites.</p>
+      </header>
+
+      <p class="findings" id="findings"></p>
+
+      <section class="stops" aria-labelledby="stops-title">
+        <h2 id="stops-title">Three chains to follow</h2>
+        <ul>
+          <li><button type="button" class="stop" data-stop="haynes1994" aria-pressed="false">
+            <b>The original survey</b>
+            <span>Haynes (1994) is the only paper with data of its own: a survey of neurologists and chiropractors in Perth.</span>
+          </button></li>
+          <li><button type="button" class="stop" data-stop="saeed2000" aria-pressed="false">
+            <b>The source that never says it</b>
+            <span>Three case reports cite Saeed et al. (2000) for the figure. It contains no risk estimate at all.</span>
+          </button></li>
+          <li><button type="button" class="stop" data-stop="vickers1999" aria-pressed="false">
+            <b>The teaching article with no reference</b>
+            <span>Vickers &amp; Zollman (1999), a BMJ teaching article, give the figure without a source, and three later papers cite them for it.</span>
+          </button></li>
+        </ul>
+      </section>
+
+      <details class="key" id="key" open>
+        <summary>Reading the map</summary>
+        <ul>
+          <li><svg width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="var(--cited)"/></svg> Gives a reference for the figure</li>
+          <li><svg width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="var(--red)"/></svg> Gives no reference</li>
+          <li><svg width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="none" stroke="var(--red)" stroke-width="1.5" stroke-dasharray="2.6 2"/></svg> Cited as the source, but never states the figure</li>
+          <li><svg width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="8" fill="none" stroke="var(--blue)" stroke-width="1.5"/><circle cx="8" cy="8" r="4.5" fill="var(--cited)"/></svg> Original research paper (only Haynes has data for this figure)</li>
+          <li><svg width="22" height="16" aria-hidden="true"><line x1="0" y1="8" x2="22" y2="8" stroke="var(--edge)" stroke-width="1.5"/></svg> Leads back to original data</li>
+          <li><svg width="22" height="16" aria-hidden="true"><line x1="0" y1="8" x2="22" y2="8" stroke="color-mix(in srgb, var(--red) 62%, var(--paper))" stroke-width="1.5"/></svg> Leads to a dead end</li>
+          <li><svg width="22" height="16" aria-hidden="true"><line x1="0" y1="8" x2="22" y2="8" stroke="var(--edge)" stroke-width="1.5" stroke-dasharray="4 3"/></svg> Doubtful link: misquoted, or the source is only probable</li>
+          <li class="is-text"><span><span class="figure-sample">1 in 10,000</span> beside a name: the paper states a different figure</span></li>
+        </ul>
+        <p class="aside">Arrows point from a paper to the source it cites. Papers that cite the same source sit together, to its right.</p>
+      </details>
+    </div>
+
+    <div class="sidebar-foot">
+      <section class="controls" aria-label="View">
+        <div class="control">
+          <span class="control-label" id="timeline-label">Timeline</span>
+          <div class="seg" role="group" aria-labelledby="timeline-label">
+            <button type="button" data-orientation="vertical" aria-pressed="true">Vertical</button>
+            <button type="button" data-orientation="horizontal" aria-pressed="false">Horizontal</button>
+          </div>
+        </div>
+        <div class="control">
+          <span class="control-label" id="sort-label">Sort</span>
+          <div class="seg" role="group" aria-labelledby="sort-label">
+            <button type="button" data-sort="oldest" aria-pressed="false">Oldest first</button>
+            <button type="button" data-sort="newest" aria-pressed="true">Newest first</button>
+          </div>
+        </div>
+        <div class="control">
+          <span class="control-label" id="names-label">Names</span>
+          <div class="seg" role="group" aria-labelledby="names-label">
+            <button type="button" data-names="show" aria-pressed="false">Show</button>
+            <button type="button" data-names="hide" aria-pressed="true">Hide</button>
+          </div>
+        </div>
+        <div class="control">
+          <span class="control-label" id="theme-label">Theme</span>
+          <div class="seg" role="group" aria-labelledby="theme-label">
+            <button type="button" data-scheme="light" aria-pressed="false">Light</button>
+            <button type="button" data-scheme="dark" aria-pressed="false">Dark</button>
+          </div>
+        </div>
+      </section>
+      <p class="hint" id="hint"></p>
+    </div>
+  </div>
+
+  <main class="chart" id="chart" aria-label="Citation map">
+    <div class="map-tools" role="group" aria-label="Map tools">
+      <button type="button" class="panel-toggle" id="panel-toggle" aria-controls="sidebar" aria-expanded="true" aria-label="Hide side panel" title="Hide side panel">
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M6 2.5v11" stroke="currentColor" stroke-width="1.3"/><path class="panel-chevron" d="M10.5 6 8.5 8l2 2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <span class="tools-gap" aria-hidden="true"></span>
+      <button type="button" data-zoom="in" aria-label="Zoom in">+</button>
+      <button type="button" data-zoom="out" aria-label="Zoom out">−</button>
+      <button type="button" data-zoom="fit">Fit</button>
+    </div>
+    <svg id="map-svg" role="group" aria-label="Citation map of publications repeating the 1 in 20,000 figure, arranged by year"></svg>
+  </main>
+</div>
+<div class="card" id="card" role="dialog"></div>
+
+<script>
+if (typeof d3 === "undefined") {
+  document.getElementById("chart").innerHTML = '<p style="padding:40px;color:red;font-size:16px;">Error: D3.js failed to load from CDN. Open this file in a browser with internet access.</p>';
+  throw new Error("D3 not loaded");
+}
+// ============================================================
+// DATA
+// ============================================================
+const nodes = [
+  { id:"haynes1994", label:"Haynes", year:1994, journal:"Chiropractic Journal of Australia",
+    fullCite:"Haynes, M. J. (1994). Chiropractic Journal of Australia, 24, 42–46.",
+    quote:"perhaps fewer than <strong>five cases of manipulation-related stroke per 100,000 patients</strong>",
+    note:"5/100,000 = 1/20,000. Original data source, based on stroke incidence in Perth, Australia relative to chiropractic utilization.",
+    type:"original", cites:null, url:null, citeIntegrity:null },
+  { id:"assendelft1996", label:"Assendelft et al.", year:1996, journal:"The Journal of Family Practice",
+    fullCite:"Assendelft, W. J., Bouter, L. M., & Knipschild, P. G. (1996). TJFP, 42(5), 475–480.",
+    quote:"He concluded that the incidence was less than <strong>5 per 100,000 patients who had received neck manipulation.</strong>",
+    note:"Accurately cites Haynes. 1 in 20,000 is the upper limit.",
+    type:"cites_source", cites:"haynes1994", url:null, citeIntegrity:null },
+  { id:"difabio1999", label:"Di Fabio", year:1999, journal:"Physical Therapy",
+    fullCite:"Di Fabio (1999). Manipulation of the cervical spine: risks and benefits. Physical Therapy, 79(1), 50–65.",
+    quote:"Other estimates… have been in the range of <strong>1 in 200,000</strong> manipulations to 1 in 3 million manipulations.",
+    note:"Cites Haynes (1994) directly. States ‘1 in 200,000 manipulations’ — a unit conversion from Haynes’s ‘5 per 100,000 patients’ using ~2 manipulations per patient per year. Not a transcription error, but a change of denominator.",
+    type:"cites_source", cites:"haynes1994", url:"https://academic.oup.com/ptj/article-abstract/79/1/50/2857770", citeIntegrity:null },
+  { id:"vickers1999", label:"Vickers & Zollman", year:1999, journal:"BMJ",
+    fullCite:"Vickers, A., & Zollman, C. (1999). BMJ, 319(7218), 1176–1179.",
+    quote:"Estimates of such severe adverse events vary widely, ranging from <strong>1 in 20 000 patients</strong>… to 1 per million procedures.",
+    note:"BMJ’s ABC series teaching article. No reference list — only further reading. Gives no source for the 1 in 20,000 figure.",
+    type:"no_citation", cites:null, url:"https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1116959/", citeIntegrity:null },
+  { id:"saeed2000", label:"Saeed et al.", year:2000, journal:"Canadian Journal of Neurological Sciences",
+    fullCite:"Saeed, A. B. et al. (2000). CJNS, 27(4), 292–296.",
+    quote:null,
+    note:"Cited by Jones (2015), Almuaigel (2020), and Baddam (2025) for ‘1 in 20,000’ but contains NO risk estimate. Phantom source.",
+    type:"phantom", cites:null, url:"https://doi.org/10.1017/S0317167100001025", citeIntegrity:null },
+  { id:"mann2001", label:"Mann & Refshauge", year:2001, journal:"Australian Journal of Physiotherapy",
+    fullCite:"Mann, T., & Refshauge, K. M. (2001). AJP, 47(4), 255–266.",
+    quote:"from <strong>one in 20,000 patients</strong> receiving cervical manipulation to one per million (Vickers & Zollman, 1999)",
+    note:"Cites Vickers & Zollman (1999) for the 1 in 20,000.",
+    type:"cites_source", cites:"vickers1999", url:"https://doi.org/10.1016/S0004-9514(14)60273-7", citeIntegrity:null },
+  { id:"diduro2001", label:"Di Duro", year:2001, journal:"Stroke",
+    fullCite:"Di Duro, J. O. (2001). Stroke, 32(10), 2440.",
+    quote:"Estimates… range from 0.1 to <strong>5.0 per 100 000</strong>.",
+    note:"Letter to the editor. Cites Assendelft (1996) who properly cites Haynes (1994).",
+    type:"cites_source", cites:"assendelft1996", url:"https://www.ahajournals.org/doi/10.1161/str.32.10.2440-a", citeIntegrity:null },
+  { id:"stevinson2001", label:"Stevinson et al.", year:2001, journal:"J Royal Soc Medicine",
+    fullCite:"Stevinson, C. et al. (2001). JRSM, 94(3), 107–110.",
+    quote:"a figure of <strong>5 strokes per 100 000 neck patients</strong> treated over 5 years.",
+    note:"Cites Haynes (1994) directly and accurately. Unusual for describing the underlying method.",
+    type:"cites_source", cites:"haynes1994", url:"https://doi.org/10.1177/014107680109400302", citeIntegrity:null },
+  { id:"gross2002", label:"Gross et al.", year:2002, journal:"Manual Therapy",
+    fullCite:"Gross, A. R. et al. (2002). Manual Therapy, 7(4), 193–205.",
+    quote:"Estimates of harm… range from <strong>one in 20,000</strong> to five in 10,000,000.",
+    note:"Cites Assendelft (1996) along with Grieve (1986) and Hurwitz (1996).",
+    type:"cites_source", cites:"assendelft1996", url:"https://doi.org/10.1054/math.2002.0477", citeIntegrity:null },
+  { id:"mitchell2004", label:"Mitchell et al.", year:2004, journal:"Manual Therapy",
+    fullCite:"Mitchell, J. et al. (2004). Manual Therapy, 9(4), 220–227.",
+    quote:"estimates… ranging from <strong>one in 20,000</strong> to five in 10,000,000 cervical spine manipulations.",
+    note:"Cites Gross et al. (2002), which cites Assendelft (1996), which cites Haynes (1994).",
+    type:"cites_source", cites:"gross2002", url:"https://doi.org/10.1016/j.math.2004.03.005", citeIntegrity:null },
+  { id:"cassidy2008", label:"Cassidy et al.", year:2008, journal:"Spine",
+    fullCite:"Cassidy, J. D. et al. (2008). Spine, 33(4 Suppl), S176–183.",
+    quote:null,
+    note:"Cited by Aleyadeh (2026) for ‘1 in 20,000’ but contains NO such figure. Reports 818 VBA strokes in 109M person-years. Phantom source.",
+    type:"phantom", cites:null, url:"https://www.ovid.com/jnls/spinejournal/abstract/10.1097/brs.0b013e3181644600", citeIntegrity:null },
+  { id:"gouveia2009", label:"Gouveia et al.", year:2009, journal:"Spine",
+    fullCite:"Gouveia, L. O. et al. (2009). Spine, 34(11), E405–413.",
+    quote:"varying from <strong>5 strokes/100,000 manipulations</strong> to 1.46/10,000,000",
+    note:"Cites Haynes (1994) directly. 5/100,000 = 1/20,000.",
+    type:"cites_source", cites:"haynes1994", url:"https://doi.org/10.1097/BRS.0b013e3181a16d63", citeIntegrity:null },
+  { id:"preul2010", label:"Preul et al.", year:2010, journal:"Clinical Neuroradiology",
+    fullCite:"Preul, C. et al. (2010). Clinical Neuroradiology, 20(4), 255–259.",
+    quote:"estimates… range from <strong>1 in 20,000</strong> to 1 in 5,846,381.",
+    note:"Case report. Cites Vickers & Zollman (1999) for the 1 in 20,000 figure.",
+    type:"cites_source", cites:"vickers1999", url:"https://doi.org/10.1007/s00062-010-0021-x", citeIntegrity:null },
+  { id:"fusco2011", label:"Fusco & Harrigan", year:2011, journal:"Neurosurgery",
+    fullCite:"Fusco, M. R. & Harrigan, M. R. (2011). Neurosurgery, 68(2), 517–530.",
+    quote:"associated with <strong>1/10,000</strong> to 1/2,000,000 cervical manipulations",
+    note:"Cites Assendelft but gives 1/10,000 instead of 1/20,000 — doubles the risk. Misquoted.",
+    type:"cites_source", cites:"assendelft1996", url:"https://doi.org/10.1227/NEU.0b013e3181fe2fda", citeIntegrity:"misquoted" },
+  { id:"engelter2013", label:"Engelter et al.", year:2013, journal:"Neurology",
+    fullCite:"Engelter, S. T. et al. (2013). Neurology, 80(21), 1950–1957.",
+    quote:"1 in 2 million to <strong>5 in 100,000 patients</strong>",
+    note:"Cites Gouveia (2009), which cites Haynes (1994): one intermediary.",
+    type:"cites_source", cites:"gouveia2009", url:"https://doi.org/10.1212/WNL.0b013e318293e2eb", citeIntegrity:null },
+  { id:"jones2015", label:"Jones et al.", year:2015, journal:"Baylor Univ. Med Center Proceedings",
+    fullCite:"Jones, J. et al. (2015). BUMC Proceedings, 28(1), 88–90.",
+    quote:"An estimated <strong>1 in 20,000 spinal manipulations</strong> results in a vertebral artery aneurysm/dissection…",
+    note:"Cites Saeed (2000), but Saeed provides NO risk estimate — phantom source.",
+    type:"cites_source", cites:"saeed2000", url:"https://doi.org/10.1080/08998280.2015.11929202", citeIntegrity:null },
+  { id:"kosloff2015", label:"Kosloff et al.", year:2015, journal:"Chiropractic & Manual Therapies",
+    fullCite:"Kosloff, T. M. et al. (2015). Chiropractic & Manual Therapies, 23(1), 19.",
+    quote:"the frequency… varied between <strong>5 strokes/100,000 manipulations</strong> to 1.46/10,000,000",
+    note:"Case-control study. Directly quotes Gouveia (2009). 5/100,000 = 1/20,000.",
+    type:"cites_source", cites:"gouveia2009", url:"http://www.chiromt.com/content/23/1/19", citeIntegrity:null },
+  { id:"whedon2015", label:"Whedon et al.", year:2015, journal:"JMPT",
+    fullCite:"Whedon, J. M. et al. (2015). JMPT, 38(2), 93–101.",
+    quote:"ranged from <strong>0.05</strong> to 1.46 <strong>per 10 000 000 manipulations.</strong>",
+    note:"Cites Gouveia (2009) but converts its figure wrongly. Gouveia gives 5/100,000 (= 500/10M); Whedon writes 0.05/10M — 10,000× too small. Misquoted.",
+    type:"cites_source", cites:"gouveia2009", url:"http://www.jmptonline.org/article/S016147541400267X/fulltext", citeIntegrity:"misquoted" },
+  { id:"neeb2016", label:"Neeb & Reuter", year:2016, journal:"Treatment-Related Stroke (Cambridge UP)",
+    fullCite:"Neeb & Reuter (2016). Treatment-Related Stroke, CUP.",
+    quote:"estimated… between 1/585 million and <strong>1/20,000 manipulations</strong>.",
+    note:"Cites Assendelft (1996) along with Haldeman (2001) and Showalter (1997).",
+    type:"cites_source", cites:"assendelft1996", url:"https://www.cambridge.org/core/books/treatmentrelated-stroke/stroke-after-chiropractic-manipulations/C4EF918806A0A49655CD263536B27B98", citeIntegrity:null },
+  { id:"church2016", label:"Church et al.", year:2016, journal:"Cureus",
+    fullCite:"Church, E. W. et al. (2016). Cureus, 8(2), 498.",
+    quote:null,
+    note:"Cited by Aleyadeh (2026) for ‘1 in 20,000’ but this systematic review contains NO such figure. Phantom source.",
+    type:"phantom", cites:null, url:"http://www.cureus.com/articles/4155", citeIntegrity:null },
+  { id:"nielsen2017", label:"Nielsen et al.", year:2017, journal:"Systematic Reviews",
+    fullCite:"Nielsen, S. M. et al. (2017). Systematic Reviews, 6(1), 64.",
+    quote:"the estimates… ranges from <strong>1 in 20,000 manipulations</strong> to 1 in 250,000,000",
+    note:"Overview of reviews. Its range starts from Gouveia (2009), Assendelft (1996) and Gross et al. (2002).",
+    type:"cites_source", cites:"gouveia2009", url:"https://doi.org/10.1186/s13643-017-0458-y", citeIntegrity:null },
+  { id:"paul2020", label:"Paul & Kumar", year:2020, journal:"Int J Contemporary Pediatrics",
+    fullCite:"Paul, A. J. & Kumar, R. (2020). IJCP, 7(2), 445–448.",
+    quote:"An average of <strong>1 in 20000 neck manipulations</strong> result in ischemic infarct…",
+    note:"No inline citation. Wording closely follows Jones (2015), which is in its reference list. Also references Di Fabio (1999).",
+    type:"no_citation", cites:"jones2015", citeIntegrity:"probable" },
+  { id:"almuaigel2020", label:"Almuaigel et al.", year:2020, journal:"Cureus",
+    fullCite:"Almuaigel, M. F. et al. (2020). Cureus, 12(7), e9310.",
+    quote:"It is estimated that <strong>1 in 20,000 spinal manipulations</strong> results in a vertebral artery dissection.",
+    note:"Cites Saeed (2000), but Saeed provides NO risk estimate — phantom source.",
+    type:"cites_source", cites:"saeed2000", url:"https://doi.org/10.7759/cureus.9310", citeIntegrity:null },
+  { id:"xia2021", label:"Xia", year:2021, journal:"Stroke: Vasc Interv Neurology (abstract)",
+    fullCite:"Xia, C. et al. (2021). Stroke: VIN, 1(Suppl 1), e12091.",
+    quote:"It is estimated that <strong>1 in 20,000 spinal manipulation</strong> results in vertebral artery aneurysm/dissection.",
+    note:"Conference abstract, case report. No citation. Phrasing closely resembles Jones (2015), suggesting it as the likely uncited source.",
+    type:"no_citation", cites:null, url:"https://doi.org/10.1161/SVIN.01.suppl_1.000200", citeIntegrity:null },
+  { id:"piening2022", label:"Piening et al.", year:2022, journal:"SAGE Open Medical Case Reports",
+    fullCite:"Piening, K. et al. (2022). SOMCR, 10, 2050313X221122451.",
+    quote:"incidence stated <strong>between 1 in 20,000 and 1 in a million</strong>",
+    note:"Cites Vickers & Zollman (1999), a BMJ teaching article with no source for the figure.",
+    type:"cites_source", cites:"vickers1999", url:"https://doi.org/10.1177/2050313X221122451", citeIntegrity:null },
+  { id:"britt2023", label:"Britt & Agarwal", year:2023, journal:"StatPearls",
+    fullCite:"Britt, T. B. & Agarwal, S. (2023). StatPearls Publishing.",
+    quote:"It is estimated that <strong>1 in 20,000 cervical spine manipulations</strong> cause a stroke.",
+    note:"Listed references don’t mention stroke risk. Claim since removed from article.",
+    type:"no_citation", cites:null, url:"https://www.ncbi.nlm.nih.gov/books/NBK441827/", citeIntegrity:null },
+  { id:"iwamoto2024", label:"Iwamoto et al.", year:2024, journal:"Cureus",
+    fullCite:"Iwamoto, S. et al. (2024). Cureus, 16(2).",
+    quote:"it is estimated that <strong>one in 20,000 spinal manipulations</strong> has resulted in VADs.",
+    note:"Cites Xia (2021), a conference abstract with no citation of its own.",
+    type:"cites_source", cites:"xia2021", url:"https://doi.org/10.7759/cureus.54990", citeIntegrity:null },
+  { id:"arnoldratliff2025", label:"Arnold-Ratliff", year:2025, journal:"The Cut (New York Magazine)",
+    fullCite:"Arnold-Ratliff, K. (2025, April 25). The Cut.",
+    quote:"<strong>1 in 20,000 chiropractic neck adjustments</strong> results in an injury…",
+    note:"Popular press. Cites Xia (2021), calling it ‘a study in the journal Stroke.’",
+    type:"cites_source", cites:"xia2021", url:"https://www.thecut.com/article/neck-cracking-chiropractic-surgery-spine.html", citeIntegrity:null },
+  { id:"baddam2025", label:"Baddam et al.", year:2025, journal:"Ann Surg Case Rep & Images",
+    fullCite:"Baddam, S. et al. (2025). ASCRI, 2(1), 1074.",
+    quote:"the estimated risk… is approximately <strong>1 in 20,000 manipulations</strong>",
+    note:"Cites Saeed (2000), but Saeed provides NO risk estimate — phantom source.",
+    type:"cites_source", cites:"saeed2000", url:"https://doi.org/10.52768/2996-7414/1074", citeIntegrity:null },
+  { id:"aleyadeh2026", label:"Aleyadeh et al.", year:2026, journal:"The Neurologist",
+    fullCite:"Aleyadeh, R. et al. (2026). The Neurologist, 31(2), 46–48.",
+    quote:"the absolute risk… is very low, estimated between <strong>1 in 20,000</strong> to 1 in several million",
+    note:"Cites Cassidy (2008) and Church (2016) — neither contains the ‘1 in 20,000’ estimate. Both are phantom sources.",
+    type:"cites_source", cites:"church2016", url:"https://journals.lww.com/theneurologist/abstract/2026/03000/cervical_artery_dissection_diagnosed_following.4.aspx", citeIntegrity:null },
+  { id:"haynes2002", label:"Haynes et al.", year:2002, journal:"J Manipulative Physiol Therapeutics",
+    fullCite:"Haynes, M. J. et al. (2002). JMPT, 25(6), 370–383.",
+    quote:"Although rare, that is, perhaps less than <strong>5 cases per 100,000 patients</strong>, stroke caused by injury of the vertebral artery is the most feared complication…",
+    note:"Self-citation. Haynes cites his own 1994 paper directly.",
+    type:"cites_source", cites:"haynes1994", url:"https://jmpt.kglmeridian.com/view/journals/ymmt/25/6/article-p370.xml", citeIntegrity:null },
+  { id:"haynes2002a", label:"Haynes", year:2002, journal:"J Manipulative Physiol Therapeutics",
+    fullCite:"Haynes, M. J. (2002). JMPT, 25(9), 556–567.",
+    quote:"<strong>fewer than 5 cases per 100,000 patients</strong> who have received this form of therapy.",
+    note:"Self-citation. Haynes cites his own 1994 paper directly. Lists multiple estimates.",
+    type:"cites_source", cites:"haynes1994", url:"https://jmpt.kglmeridian.com/doi/10.1067/mmt.2002.127077", citeIntegrity:null },
+  { id:"vohra2007", label:"Vohra et al.", year:2007, journal:"Pediatrics",
+    fullCite:"Vohra, S. et al. (2007). Pediatrics, 119(1), e275–283.",
+    quote:"estimates of vertebrobasilar accidents from <strong>1 in 20,000 patients</strong> to 1 per 1 million cervical manipulations",
+    note:"Systematic review of pediatric spinal manipulation. Cites both Assendelft (1996) and Haynes (1994).",
+    type:"cites_source", cites:"assendelft1996", url:"http://pediatrics.aappublications.org/cgi/doi/10.1542/peds.2006-1392", citeIntegrity:null },
+];
+
+const extraEdges = [
+  { source:"nielsen2017", target:"assendelft1996", type:"cites" },
+  { source:"nielsen2017", target:"gross2002", type:"cites" },
+  { source:"aleyadeh2026", target:"cassidy2008", type:"cites" },
+  { source:"paul2020", target:"difabio1999", type:"probable" },
+  { source:"vohra2007", target:"haynes1994", type:"cites" }
+];
+
+const statedFigure = { fusco2011:"1 in 10,000", whedon2015:"1 in 200 million" };
+const unitConversion = { difabio1999:"1 in 200,000 manipulations" };
+
+// ============================================================
+// BUILD EDGES
+// ============================================================
+const nodeMap = Object.fromEntries(nodes.map(n => [n.id, n]));
+const edgeList = [];
+nodes.forEach(n => {
+  if (n.cites) edgeList.push({ source:n.id, target:n.cites, citeIntegrity: n.citeIntegrity });
+});
+extraEdges.forEach(e => {
+  if (!edgeList.find(x => x.source===e.source && x.target===e.target))
+    edgeList.push({ source:e.source, target:e.target, citeIntegrity: e.type==="probable" ? "probable" : null });
+});
+
+// ============================================================
+// GRAPH HELPERS
+// ============================================================
+const childrenOf = {};  // target -> [citing ids]
+const parentsOf  = {};  // source -> [cited ids]
+edgeList.forEach(e => {
+  (childrenOf[e.target] ??= []).push(e.source);
+  (parentsOf[e.source]  ??= []).push(e.target);
+});
+
+function reachesOriginal(id, visited = new Set()) {
+  if (id === "haynes1994") return true;
+  if (visited.has(id)) return false;
+  visited.add(id);
+  return (parentsOf[id] || []).some(p => reachesOriginal(p, visited));
+}
+function reachesPhantom(id, visited = new Set()) {
+  if (nodeMap[id]?.type === "phantom") return true;
+  if (visited.has(id)) return false;
+  visited.add(id);
+  return (parentsOf[id] || []).some(p => reachesPhantom(p, visited));
+}
+function getOutcome(id) {
+  if (reachesOriginal(id)) return "traced";
+  if (reachesPhantom(id)) return "phantom";
+  return "stray";
+}
+function getUpstream(id, s = new Set()) { if (s.has(id)) return s; s.add(id); (parentsOf[id]||[]).forEach(p => getUpstream(p, s)); return s; }
+function getDownstream(id, s = new Set()) { if (s.has(id)) return s; s.add(id); (childrenOf[id]||[]).forEach(c => getDownstream(c, s)); return s; }
+
+// ============================================================
+// LANE ASSIGNMENT
+// ============================================================
+const ROOT_GAP = 1;   // extra space between unrelated citation trees
+
+// Every paper gets its own lane; see citation-layout.js for how and why.
+// edgeList lists each paper's main citation (n.cites) before its extra
+// ones, which is the order computeLanes expects. Papers with the same
+// outcome are kept together so each bracket is one unbroken run.
+// Lanes are computed once: they don't depend on orientation, sort order or
+// window size.
+const laneLayout = CitationLayout.computeLanes({
+  nodes, edges: edgeList, groupOf: getOutcome, treeGap: ROOT_GAP
+});
+const laneOfFixed = laneLayout.lanes;
+window.layoutStats = laneLayout;   // layoutStats.crossings should be 0
+
+
+// ============================================================
+// GROUPS (bracket labels)
+// ============================================================
+function computeGroups(laneOf) {
+  const groupMap = {};
+  nodes.forEach(n => {
+    const oc = getOutcome(n.id);
+    const lane = laneOf[n.id] ?? 0;
+    if (!groupMap[oc]) groupMap[oc] = { outcome: oc, ids: [n.id], minLane: lane, maxLane: lane };
+    else { groupMap[oc].ids.push(n.id); groupMap[oc].minLane = Math.min(groupMap[oc].minLane, lane); groupMap[oc].maxLane = Math.max(groupMap[oc].maxLane, lane); }
+  });
+  return Object.values(groupMap).sort((a, b) => a.minLane - b.minLane);
+}
+const groupLabels = { traced:"Traced to Haynes (1994)", phantom:"Cites phantom source", stray:"No path to original data" };
+
+// ============================================================
+// FINDINGS
+// ============================================================
+function buildFindings() {
+  const el = document.getElementById("findings");
+  if (!el) return;
+  const traced = nodes.filter(n => getOutcome(n.id)==="traced").length;
+  const phantom = nodes.filter(n => getOutcome(n.id)==="phantom").length;
+  const stray = nodes.filter(n => getOutcome(n.id)==="stray").length;
+  el.innerHTML = `Of the <b>${nodes.length} papers</b> citing a stroke-risk figure near 1 in 20,000, <b>${traced}</b> can be traced back to the original data in Haynes (1994). <b>${phantom}</b> cite sources that contain no such figure (phantom citations), and <b>${stray}</b> provide no citation at all.`;
+}
+
+// ============================================================
+// SVG SETUP
+// ============================================================
+const isMobile = window.innerWidth <= 960;
+const BASE_YEAR_GAP = isMobile ? 90 : 140, PAD_L = isMobile ? 60 : 100, PAD_T = isMobile ? 36 : 60, NODE_R = isMobile ? 5 : 8, CORNER_R = 12;
+
+const chartEl = document.getElementById("chart");
+const svg = d3.select("#map-svg");
+const defs = svg.append("defs");
+
+// Arrow markers
+["normal","dead","doubtful"].forEach(cls => {
+  defs.append("marker").attr("id",`arr-${cls}`)
+    .attr("viewBox","0 0 10 10").attr("refX",10).attr("refY",5)
+    .attr("markerWidth",8).attr("markerHeight",8).attr("orient","auto-start-reverse")
+    .append("path").attr("d","M0,0 L10,5 L0,10 Z").attr("class",`arrow ${cls==="dead"?"is-dead":""}`);
+});
+
+const gAll = svg.append("g");
+const gGrid = gAll.append("g"), gEdges = gAll.append("g"), gNodes = gAll.append("g"), gBrackets = gAll.append("g");
+
+// Time-axis zoom state
+let timeK = 1, timePan = 0;
+
+// Labels sit beside their dot in the paper's own lane, on the side facing
+// newer years. The time axis leaves room for the longest one at its newest
+// end, and zooming scales the axis around its start so that room is kept.
+const LABEL_GAP = NODE_R + 8;
+const LABEL_SIZE = 15;
+let TIME0 = PAD_T, END_PAD = PAD_T;
+const measureCtx = document.createElement("canvas").getContext("2d");
+const labelText = n => [showNames ? n.label : "", statedFigure[n.id] || unitConversion[n.id] || ""].filter(Boolean).join("  ");
+function labelWidth(n) {
+  const t = labelText(n);
+  if (!t) return 0;
+  measureCtx.font = `600 ${LABEL_SIZE}px "IBM Plex Sans Condensed", "Arial Narrow", sans-serif`;
+  return measureCtx.measureText(t).width;
+}
+const zt = t => TIME0 + (t - TIME0) * timeK;
+
+// ============================================================
+// LAYOUT
+// ============================================================
+let HORIZONTAL = false;
+let REVERSED = true;
+let currentPositions = null, currentLaneOf = null;
+let baseLayout = null;  // Stores layout data for zoom updates
+
+function getChartDimensions() {
+  // clientWidth = visible container area (excludes scrollbar).
+  // CSS width:100% on the SVG prevents it from inflating the container,
+  // so this always returns the grid cell's actual width.
+  return { w: chartEl.clientWidth || 600, h: chartEl.clientHeight || 400 };
+}
+
+function layout() {
+  const dim = getChartDimensions();
+  const chartW = dim.w, chartH = dim.h;
+
+  const years = [...new Set(nodes.map(n=>n.year))].sort((a,b)=> REVERSED ? b-a : a-b);
+  const yearIdx = Object.fromEntries(years.map((y,i)=>[y,i]));
+  // Only as much room as the labels actually need past the newest year:
+  // a label on an older paper already has the years between it and the end.
+  const stepsToNewest = n => REVERSED ? yearIdx[n.year] : years.length - 1 - yearIdx[n.year];
+  const labelRoom = CitationLayout.labelRoom(
+    nodes.map(n => ({ width: labelWidth(n), distance: stepsToNewest(n) * BASE_YEAR_GAP })), LABEL_GAP);
+  TIME0 = PAD_T + (REVERSED ? labelRoom : 0);
+  END_PAD = REVERSED ? PAD_T : Math.max(PAD_T, labelRoom);
+
+  const laneOf = laneOfFixed;
+  const maxLane = Math.max(0, ...Object.values(laneOf));
+
+  // Compute LANE_GAP to fill available space
+  const fitDim = HORIZONTAL ? chartH : chartW;
+  const LANE_GAP = maxLane > 0
+    ? Math.max(2 * NODE_R + 8, (fitDim - 2 * PAD_L) / maxLane)
+    : fitDim;
+
+  // Build positions
+  const positions = {};
+  nodes.forEach(n => {
+    const lane = laneOf[n.id] ?? 0;
+    const laneBase = PAD_L + lane * LANE_GAP;
+    const timeBase = TIME0 + yearIdx[n.year] * BASE_YEAR_GAP;
+    positions[n.id] = HORIZONTAL
+      ? { x: timeBase, y: laneBase, lane: laneBase, time: timeBase }
+      : { x: laneBase, y: timeBase, lane: laneBase, time: timeBase };
+  });
+  currentLaneOf = laneOf;
+  currentPositions = positions;
+
+  const groups = computeGroups(laneOf);
+  const totalLane = PAD_L + maxLane * LANE_GAP + PAD_L;
+
+  baseLayout = { positions, laneOf, years, yearIdx, groups, maxLane, LANE_GAP, chartW, chartH, totalLane };
+  return baseLayout;
+}
+
+// Get zoomed position for a node
+function zoomedPos(base) {
+  if (!base) return null;
+  const t = zt(base.time);
+  return HORIZONTAL
+    ? { x: t, y: base.lane }
+    : { x: base.lane, y: t };
+}
+
+// ============================================================
+// EDGE ROUTING
+// ============================================================
+// Each line runs along the citing paper's own lane to the cited year, then
+// turns once into the cited paper (CitationLayout.routeEdge).
+const routeEdge = (sp, tp) => CitationLayout.routeEdge(sp, tp, { horizontal: HORIZONTAL, cornerRadius: CORNER_R });
+
+function edgeIsDead(e) {
+  return !reachesOriginal(e.source);
+}
+function edgeIsDoubtful(e) {
+  if (e.citeIntegrity === "misquoted" || e.citeIntegrity === "probable") return true;
+  if (nodeMap[e.source]?.citeIntegrity === "misquoted") return true;
+  return false;
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+let pinnedId = null;
+
+function render() {
+  const L = layout();
+  const { positions, years, yearIdx, groups, laneOf, maxLane, LANE_GAP, chartW, chartH } = L;
+
+  // Reset zoom state on re-render
+  timeK = 1; timePan = 0;
+
+  // Size SVG: lane axis fills container; time axis extends for scrolling
+  const totalTime = TIME0 + (years.length - 1) * BASE_YEAR_GAP + END_PAD;
+  const totalLane = L.totalLane || chartW;
+
+  if (isMobile) {
+    svg.style("width", null);
+    svg.attr("width", HORIZONTAL ? totalTime : totalLane)
+       .attr("height", HORIZONTAL ? totalLane : totalTime);
+  } else if (HORIZONTAL) {
+    // Horizontal: lanes fill height, time scrolls right.
+    // Override CSS width:100% so SVG can be wider than container.
+    svg.style("width", "auto");
+    svg.attr("width", totalTime).attr("height", chartH);
+    chartEl.scrollTop = 0;
+  } else {
+    // Vertical: lanes fill width, time scrolls down.
+    // CSS width:100% keeps it contained; attribute sets coordinate space.
+    // When there are too many lanes to fit, scroll sideways instead of clipping.
+    const laneW = Math.max(chartW, totalLane);
+    svg.style("width", laneW > chartW ? "auto" : null);
+    svg.attr("width", laneW).attr("height", totalTime);
+    chartEl.scrollLeft = 0;
+  }
+
+  // Grid — lines span the full lane axis
+  gGrid.selectAll("*").remove();
+  const lEnd = totalLane;
+  years.forEach((yr, i) => {
+    const tBase = TIME0 + i * BASE_YEAR_GAP;
+    if (HORIZONTAL) {
+      gGrid.append("line").attr("class","grid-line").attr("data-time", tBase)
+        .attr("x1",tBase).attr("y1",0).attr("x2",tBase).attr("y2",lEnd);
+      gGrid.append("text").attr("class","year-label").attr("data-time", tBase)
+        .attr("x",tBase).attr("y",PAD_T-14).attr("text-anchor","middle").text(yr);
+    } else {
+      gGrid.append("line").attr("class","grid-line").attr("data-time", tBase)
+        .attr("x1",0).attr("y1",tBase).attr("x2",lEnd).attr("y2",tBase);
+      gGrid.append("text").attr("class","year-label").attr("data-time", tBase)
+        .attr("x",PAD_L-14).attr("y",tBase+4).attr("text-anchor","end").text(yr);
+    }
+  });
+
+  // Edges
+  gEdges.selectAll("*").remove();
+  edgeList.forEach(e => {
+    const sp = positions[e.source], tp = positions[e.target];
+    if (!sp || !tp) return;
+    const dead = edgeIsDead(e), doubtful = edgeIsDoubtful(e);
+    const cls = ["edge", dead?"is-dead":"", doubtful?"is-doubtful":""].filter(Boolean).join(" ");
+    const marker = doubtful ? "url(#arr-doubtful)" : dead ? "url(#arr-dead)" : "url(#arr-normal)";
+    gEdges.append("path").attr("d", routeEdge(sp, tp)).attr("class", cls)
+      .attr("marker-end", marker).attr("data-source", e.source).attr("data-target", e.target);
+  });
+
+  // Nodes
+  gNodes.selectAll("*").remove();
+  nodes.forEach(n => {
+    const p = positions[n.id]; if (!p) return;
+    const g = gNodes.append("g").attr("class","node").attr("data-id",n.id)
+      .attr("transform",`translate(${p.x},${p.y})`)
+      .on("click", () => selectNode(n.id))
+      .on("mouseenter", () => { if (!pinnedId) highlightLineage(n.id); })
+      .on("mouseleave", () => { if (!pinnedId) clearHighlight(); });
+
+    // Hit area
+    g.append("circle").attr("r", NODE_R + 10).attr("class","hit");
+
+    if (n.type === "phantom") {
+      g.append("circle").attr("r", NODE_R).attr("class","phantom");
+    } else if (n.type === "no_citation") {
+      g.append("circle").attr("r", NODE_R).attr("class","dot is-unreferenced");
+    } else if (n.id === "haynes1994") {
+      g.append("circle").attr("r", NODE_R + 3).attr("class","ring");
+      g.append("circle").attr("r", NODE_R).attr("class","dot");
+    } else {
+      g.append("circle").attr("r", NODE_R).attr("class","dot");
+    }
+
+    // Name, plus any differing figure, in the empty part of the paper's own
+    // lane on the side facing newer years. Lines only ever head back towards
+    // older years, so nothing else is drawn there.
+    const badge = statedFigure[n.id] || unitConversion[n.id];
+    if (showNames || badge) {
+      const place = CitationLayout.labelPlacement({ horizontal: HORIZONTAL, newestFirst: REVERSED, gap: LABEL_GAP });
+      const label = g.append("text").attr("class",`node-label${n.id==="haynes1994"?" is-source":""}`)
+        .attr("dominant-baseline","central").attr("text-anchor", place.anchor)
+        .attr("transform", place.transform);
+      if (showNames) label.append("tspan").text(n.label);
+      if (badge) label.append("tspan").attr("class","figure").attr("dx", showNames ? 6 : 0).text(badge);
+    }
+  });
+
+  // Brackets
+  gBrackets.selectAll("*").remove();
+  groups.forEach(grp => {
+    if (grp.ids.length < 2) return;
+    const dead = grp.outcome !== "traced";
+    const margin = NODE_R * 2.5;
+    const gap = L.LANE_GAP;
+    if (HORIZONTAL) {
+      const y0 = PAD_L + grp.minLane * gap - margin;
+      const y1 = PAD_L + grp.maxLane * gap + margin;
+      const x = PAD_T - 30;
+      gBrackets.append("path").attr("d", `M${x+6},${y0} L${x},${y0} L${x},${y1} L${x+6},${y1}`)
+        .attr("class",`group-bracket${dead?" is-dead":""}`);
+      gBrackets.append("text").attr("class",`group-caption${dead?" is-dead":""}`)
+        .attr("transform",`translate(${x-10},${(y0+y1)/2}) rotate(-90)`)
+        .attr("text-anchor","middle").text(groupLabels[grp.outcome]||grp.outcome);
+    } else {
+      const x0 = PAD_L + grp.minLane * gap - margin;
+      const x1 = PAD_L + grp.maxLane * gap + margin;
+      const y = PAD_T - 26;
+      gBrackets.append("path").attr("d", `M${x0},${y+6} L${x0},${y} L${x1},${y} L${x1},${y+6}`)
+        .attr("class",`group-bracket${dead?" is-dead":""}`);
+      gBrackets.append("text").attr("class",`group-caption${dead?" is-dead":""}`)
+        .attr("x",(x0+x1)/2).attr("y",y-6).attr("text-anchor","middle").text(groupLabels[grp.outcome]||grp.outcome);
+    }
+  });
+
+  buildFindings();
+
+  // Set up 1D zoom (desktop only)
+  if (!isMobile) {
+    setupTimeZoom();
+  }
+}
+
+// ============================================================
+// TIME ZOOM (anisotropic: lane axis fixed, time axis zoomable)
+// ============================================================
+let zoomBeh = null;
+
+function setupTimeZoom() {
+  // Remove previous zoom behavior — use native scrollbar for panning,
+  // d3.zoom only for Ctrl+wheel scaling
+  svg.on(".zoom", null);
+
+  zoomBeh = d3.zoom()
+    .scaleExtent([0.5, 4])
+    .on("zoom", e => {
+      timeK = e.transform.k;
+      timePan = 0; // Pan handled by native scroll, not d3
+      applyTimeZoom();
+    });
+
+  // Only intercept Ctrl+wheel for zoom; let plain wheel pass through to native scroll
+  svg.on("wheel", function(e) {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const dir = e.deltaY > 0 ? 0.92 : 1.08;
+      svg.call(zoomBeh.scaleBy, dir);
+    }
+    // else: let the event bubble to .chart's native scrollbar
+  }, { passive: false });
+
+  // Disable d3's default wheel/drag zoom (we handle wheel above)
+  svg.call(zoomBeh).on("wheel.zoom", null).on("mousedown.zoom", null)
+    .on("touchstart.zoom", null).on("dblclick.zoom", null);
+
+  svg.call(zoomBeh.transform, d3.zoomIdentity);
+}
+
+function applyTimeZoom() {
+  if (!baseLayout) return;
+  const { positions, years, maxLane, LANE_GAP, chartW, chartH, totalLane } = baseLayout;
+
+  // Update SVG extent to match zoomed timeline
+  const lastYearT = zt(TIME0 + (years.length - 1) * BASE_YEAR_GAP) + END_PAD;
+  if (HORIZONTAL) {
+    svg.style("width", "auto");
+    svg.attr("width", Math.max(lastYearT, chartW));
+    svg.attr("height", totalLane || chartH);
+  } else {
+    const laneW = Math.max(chartW, totalLane || 0);
+    svg.style("width", laneW > chartW ? "auto" : null);
+    svg.attr("height", Math.max(lastYearT, chartH));
+    svg.attr("width", laneW);
+  }
+
+  // Reposition nodes
+  gNodes.selectAll(".node").each(function() {
+    const id = this.dataset.id;
+    const base = positions[id];
+    if (!base) return;
+    const zp = zoomedPos(base);
+    d3.select(this).attr("transform", `translate(${zp.x},${zp.y})`);
+  });
+
+  // Recompute edges with zoomed positions
+  gEdges.selectAll("path").each(function() {
+    const el = d3.select(this);
+    const src = el.attr("data-source"), tgt = el.attr("data-target");
+    const sp = zoomedPos(positions[src]), tp = zoomedPos(positions[tgt]);
+    if (sp && tp) el.attr("d", routeEdge(sp, tp));
+  });
+
+  // Reposition grid lines and year labels
+  gGrid.selectAll(".grid-line").each(function() {
+    const t = zt(+this.dataset.time);
+    if (HORIZONTAL) {
+      d3.select(this).attr("x1", t).attr("x2", t);
+    } else {
+      d3.select(this).attr("y1", t).attr("y2", t);
+    }
+  });
+  gGrid.selectAll(".year-label").each(function() {
+    const t = zt(+this.dataset.time);
+    if (HORIZONTAL) {
+      d3.select(this).attr("x", t);
+    } else {
+      d3.select(this).attr("y", t + 4);
+    }
+  });
+}
+
+function fitView(animate) {
+  if (isMobile || !zoomBeh) return;
+  const t = d3.zoomIdentity;
+  if (animate) {
+    svg.transition().duration(500).call(zoomBeh.transform, t);
+  } else {
+    svg.call(zoomBeh.transform, t);
+  }
+}
+
+// ============================================================
+// HIGHLIGHT
+// ============================================================
+function highlightLineage(id) {
+  const up = getUpstream(id), down = getDownstream(id), lineage = new Set([...up,...down]);
+  gNodes.selectAll(".node").each(function(){ const nid=this.dataset.id; d3.select(this).style("opacity", lineage.has(nid)?1:0.15); });
+  gEdges.selectAll("path").each(function(){
+    const s=this.dataset.source, t=this.dataset.target;
+    const inL = lineage.has(s) && lineage.has(t);
+    d3.select(this).style("opacity", inL?1:0.08).classed("is-active", inL);
+  });
+}
+function clearHighlight() {
+  gNodes.selectAll(".node").style("opacity",1);
+  gEdges.selectAll("path").style("opacity",1).classed("is-active",false);
+}
+
+// ============================================================
+// DETAILS CARD
+// ============================================================
+const card = document.getElementById("card");
+
+function selectNode(id) {
+  const n = nodeMap[id]; if (!n) return;
+  pinnedId = id;
+  highlightLineage(id);
+
+  const oc = getOutcome(id);
+  const statusLabel = { traced:"Traced to original data", phantom:"Phantom source", stray:"Dead-end chain" }[oc];
+  const isBad = oc !== "traced";
+
+  let h = `<button class="card-close" aria-label="Close">×</button>`;
+  h += `<h3>${n.label} (${n.year})</h3>`;
+  h += `<p class="journal">${n.journal}</p>`;
+  h += `<p class="status${isBad?" is-bad":""}">${statusLabel}</p>`;
+
+  if (statedFigure[id]) h += `<p class="figure-note">States: ${statedFigure[id]}</p>`;
+  if (unitConversion[id]) h += `<p class="unit-note">Unit conversion: ${unitConversion[id]} (manipulations, not patients)</p>`;
+
+  if (n.quote) h += `<blockquote${n.type==="phantom"?' class="is-missing"':''}>${n.quote}</blockquote>`;
+  else if (n.type==="phantom") h += `<blockquote class="is-missing">No risk estimate found in this paper.</blockquote>`;
+
+  if (n.note) h += `<p class="note">${n.note}</p>`;
+
+  // Upstream / downstream links
+  const ups = (parentsOf[id]||[]).map(p => nodeMap[p]).filter(Boolean);
+  const dns = (childrenOf[id]||[]).map(c => nodeMap[c]).filter(Boolean);
+  if (ups.length) {
+    h += `<h4>Cites ↓</h4><ul class="links">${ups.map(u => `<li><button type="button" data-goto="${u.id}">${u.label} (${u.year})</button></li>`).join("")}</ul>`;
+  }
+  if (dns.length) {
+    h += `<h4>Cited by ↑</h4><ul class="links">${dns.map(c => `<li><button type="button" data-goto="${c.id}">${c.label} (${c.year})${getOutcome(c.id)!=="traced"?' <span class="tag">✗</span>':""}</button></li>`).join("")}</ul>`;
+  }
+
+  h += `<p class="full-cite">${n.fullCite}${n.url?` <a href="${n.url}" target="_blank" rel="noopener">↗</a>`:""}</p>`;
+
+  card.innerHTML = h;
+  card.classList.add("is-visible","is-pinned");
+
+  // Position card near node (desktop) or at bottom (mobile)
+  if (currentPositions && window.innerWidth > 960) {
+    const base = currentPositions[id];
+    const zp = zoomedPos(base);
+    const rect = chartEl.getBoundingClientRect();
+    let cx = rect.left + zp.x + 20;
+    let cy = rect.top + zp.y - chartEl.scrollTop + 20;
+    cx = Math.min(cx, window.innerWidth - 380);
+    cy = Math.max(cy, 12);
+    cy = Math.min(cy, window.innerHeight - 300);
+    card.style.left = cx + "px";
+    card.style.top = cy + "px";
+  }
+
+  // Bind close and goto buttons
+  card.querySelector(".card-close")?.addEventListener("click", closeCard);
+  card.querySelectorAll("[data-goto]").forEach(b => b.addEventListener("click", () => selectNode(b.dataset.goto)));
+
+  // Mark stops
+  document.querySelectorAll("[data-stop]").forEach(s => s.setAttribute("aria-pressed", s.dataset.stop===id));
+}
+
+function closeCard() {
+  card.classList.remove("is-visible","is-pinned");
+  pinnedId = null;
+  clearHighlight();
+  document.querySelectorAll("[data-stop]").forEach(s => s.setAttribute("aria-pressed","false"));
+}
+
+// Close on background click
+svg.on("click", function(e) { if (e.target.closest(".node")) return; closeCard(); });
+
+// ============================================================
+// GUIDED STOPS
+// ============================================================
+document.querySelectorAll("[data-stop]").forEach(el => {
+  el.addEventListener("click", e => { e.preventDefault(); selectNode(el.dataset.stop); });
+});
+
+// ============================================================
+// CONTROLS
+// ============================================================
+// Orientation
+document.querySelectorAll("[data-orientation]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    HORIZONTAL = btn.dataset.orientation === "horizontal";
+    document.querySelectorAll("[data-orientation]").forEach(b => b.setAttribute("aria-pressed", b === btn));
+    closeCard(); render();
+  });
+});
+
+// Sort
+document.querySelectorAll("[data-sort]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    REVERSED = btn.dataset.sort === "newest";
+    document.querySelectorAll("[data-sort]").forEach(b => b.setAttribute("aria-pressed", b === btn));
+    closeCard(); render();
+  });
+});
+
+// Names
+let showNames = true;
+document.querySelectorAll("[data-names]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    showNames = btn.dataset.names === "show";
+    document.querySelectorAll("[data-names]").forEach(b => b.setAttribute("aria-pressed", b === btn));
+    closeCard(); render();
+  });
+});
+
+// Theme
+document.querySelectorAll("[data-scheme]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.documentElement.dataset.theme = btn.dataset.scheme;
+    document.querySelectorAll("[data-scheme]").forEach(b => b.setAttribute("aria-pressed", b === btn));
+    try { localStorage.setItem("citation-map-theme", btn.dataset.scheme); } catch(e){}
+  });
+});
+
+// Zoom
+document.querySelectorAll("[data-zoom]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    if (!zoomBeh) return;
+    if (btn.dataset.zoom === "in") {
+      svg.transition().duration(200).call(zoomBeh.scaleBy, 1.3);
+    } else if (btn.dataset.zoom === "out") {
+      svg.transition().duration(200).call(zoomBeh.scaleBy, 0.77);
+    } else {
+      fitView(true);
+    }
+  });
+});
+
+// Panel collapse
+const panelToggle = document.getElementById("panel-toggle");
+if (panelToggle) {
+  panelToggle.addEventListener("click", () => {
+    const page = document.querySelector(".page");
+    page.classList.toggle("is-collapsed");
+    const collapsed = page.classList.contains("is-collapsed");
+    panelToggle.setAttribute("aria-expanded", !collapsed);
+    panelToggle.setAttribute("aria-label", collapsed ? "Show side panel" : "Hide side panel");
+    panelToggle.setAttribute("title", collapsed ? "Show side panel" : "Hide side panel");
+    setTimeout(() => { closeCard(); render(); }, 350);
+  });
+}
+
+// ============================================================
+// DEEP LINKING
+// ============================================================
+function checkHash() { const h = location.hash.slice(1); if (h && nodeMap[h]) selectNode(h); }
+window.addEventListener("hashchange", checkHash);
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  try {
+    // Set initial theme button state
+    const cur = document.documentElement.dataset.theme || (window.matchMedia?.("(prefers-color-scheme:dark)")?.matches ? "dark" : "light");
+    if (cur === "dark") document.documentElement.dataset.theme = "dark";
+    document.querySelectorAll("[data-scheme]").forEach(b => b.setAttribute("aria-pressed", b.dataset.scheme === cur));
+    // Set initial orientation button state
+    document.querySelectorAll("[data-orientation]").forEach(b => b.setAttribute("aria-pressed", b.dataset.orientation === (HORIZONTAL?"horizontal":"vertical")));
+    document.querySelectorAll("[data-names]").forEach(b => b.setAttribute("aria-pressed", b.dataset.names === "show"));
+
+    if (isMobile) {
+      HORIZONTAL = false;
+      showNames = true;
+    }
+    // Sync sort button state to match REVERSED default
+    document.querySelectorAll("[data-sort]").forEach(b => b.setAttribute("aria-pressed", b.dataset.sort === (REVERSED ? "newest" : "oldest")));
+    render();
+    checkHash();
+
+
+  } catch(e) {
+    console.error("[citation-map] Init error:", e);
+    document.getElementById("chart").insertAdjacentHTML("afterbegin",
+      `<p style="padding:20px;color:red;font:14px sans-serif;position:absolute;z-index:99">Render error: ${e.message}</p>`);
+  }
+}
+
+// Labels are measured to leave room for them, so wait for the condensed
+// face (the browser won't fetch it until asked), but not for long.
+const fontsLoaded = document.fonts
+  ? Promise.all(['500 15px "IBM Plex Sans Condensed"', '600 15px "IBM Plex Sans Condensed"'].map(f => document.fonts.load(f))).catch(() => {})
+  : Promise.resolve();
+Promise.race([fontsLoaded, new Promise(r => setTimeout(r, 1500))]).then(init);
+
+let resizeTimer;
+if (!isMobile) window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => render(), 200); });
+</script>
+</body>
+</html>

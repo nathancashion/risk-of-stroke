@@ -14,6 +14,8 @@
   } catch (e) {}
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<!-- Lane layout, routing and label placement. Keep this file next to the page. -->
+<script src="citation-layout.js"></script>
 <style>
   :root {
     color-scheme: light;
@@ -538,6 +540,31 @@ const nodes = [
     quote:"<strong>fewer than 5 cases per 100,000 patients</strong> who have received this form of therapy.",
     note:"Self-citation. Haynes cites his own 1994 paper directly. Lists multiple estimates.",
     type:"cites_source", cites:"haynes1994", url:"https://jmpt.kglmeridian.com/doi/10.1067/mmt.2002.127077", citeIntegrity:null },
+  { id:"ng2001", label:"Ng & Doube", year:2001, journal:"NZ Medical Journal",
+    fullCite:"Ng, K. P. L. & Doube, A. (2001). NZ Med J, 114(1143), 498.",
+    quote:"Estimates of complications range from <strong>one in 200,000</strong> (Haynes 1994) to one in 3 million <strong>manipulations</strong>.",
+    note:"Case report. Cites Haynes (1994) directly. Uses the 5-year incidence figure (1 in 200,000 manipulations).",
+    type:"cites_source", cites:"haynes1994", url:"https://www.proquest.com/openview/d2987dd3bc8902e4c9e59d135a9bea64/1?pq-origsite=gscholar&cbl=1056336", citeIntegrity:null },
+  { id:"rivett1995", label:"Rivett", year:1995, journal:"Journal of Manual & Manipulative Therapy",
+    fullCite:"Rivett, D. A. (1995). Journal of Manual & Manipulative Therapy, 3(4), 144–151.",
+    quote:"It was calculated that there were <strong>approximately five cases of manipulation related stroke per 1,000,000 patients</strong> attending chiropractors in Australia (i.e. an incident rate of 1 in 200,000).",
+    note:"Cites Haynes (1994) directly, but misquotes it: Haynes estimated about 5 per 1,000,000 cervical manipulations over 5 years, not per patient.",
+    type:"cites_source", cites:"haynes1994", url:"https://doi.org/10.1179/jmt.1995.3.4.144", citeIntegrity:"misquoted" },
+  { id:"vautravers2000", label:"Vautravers & Maigne", year:2000, journal:"Revue du Rhumatisme",
+    fullCite:"Vautravers, P. & Maigne, J.-Y. (2000). Revue du Rhumatisme, 67(5), 349–354.",
+    quote:"Haynes (1994) notes fewer than <strong>five accidents per 100,000 [cervical manipulations]</strong>.",
+    note:"Cites Haynes (1994) directly. Quote translated from French; the bracketed denominator is inferred, not stated.",
+    type:"cites_source", cites:"haynes1994", url:"https://www.sciencedirect.com/science/article/pii/S1169833000800022", citeIntegrity:null },
+  { id:"marx2009", label:"Marx et al.", year:2009, journal:"Fortschritte der Neurologie · Psychiatrie",
+    fullCite:"Marx, P. et al. (2009). Fortschritte der Neurologie · Psychiatrie, 77(2), 83–90.",
+    quote:"Estimates of the rate of ischemic complications after cervical spine manipulation vary widely. […] Haynes (1994) reported a rate of <strong>5/100,000</strong> for the Perth region of Australia.",
+    note:"Cites Haynes (1994) directly. Quote translated from German.",
+    type:"cites_source", cites:"haynes1994", url:"http://www.thieme-connect.de/DOI/DOI?10.1055/s-0028-1109083", citeIntegrity:null },
+  { id:"barry2011", label:"Barry et al.", year:2011, journal:"Rapport de l'unité U669 de l'Inserm",
+    fullCite:"Barry, C., Dufaure, I. & Falissard, B. (2011). Evaluation de l’efficacité de la pratique de la chiropratique. Rapport de l'unité U669 de l'Inserm.",
+    quote:"Based on this data, Haynes calculated that there would be fewer than <strong>5 cases of stroke per 100,000 patients</strong> who received cervical manipulation by a chiropractor.",
+    note:"Inserm report. Cites Haynes (1994) directly. Quote translated from French.",
+    type:"cites_source", cites:"haynes1994", url:"https://www.getcop.org/wp-content/uploads/2019/08/Inserm_RapportThematique_EvaluationEfficaciteChiropratique_2011.pdf", citeIntegrity:null },
   { id:"vohra2007", label:"Vohra et al.", year:2007, journal:"Pediatrics",
     fullCite:"Vohra, S. et al. (2007). Pediatrics, 119(1), e275–283.",
     quote:"estimates of vertebrobasilar accidents from <strong>1 in 20,000 patients</strong> to 1 per 1 million cervical manipulations",
@@ -553,7 +580,7 @@ const extraEdges = [
   { source:"vohra2007", target:"haynes1994", type:"cites" }
 ];
 
-const statedFigure = { fusco2011:"1 in 10,000", whedon2015:"1 in 200 million" };
+const statedFigure = { fusco2011:"1 in 10,000", whedon2015:"1 in 200 million", ng2001:"1 in 200,000", rivett1995:"1 in 200,000" };
 const unitConversion = { difabio1999:"1 in 200,000 manipulations" };
 
 // ============================================================
@@ -602,7 +629,20 @@ function getDownstream(id, s = new Set()) { if (s.has(id)) return s; s.add(id); 
 // ============================================================
 // LANE ASSIGNMENT
 // ============================================================
-const ROOT_GAP = 1;
+const ROOT_GAP = 1;   // extra space between unrelated citation trees
+
+// Every paper gets its own lane; see citation-layout.js for how and why.
+// edgeList lists each paper's main citation (n.cites) before its extra
+// ones, which is the order computeLanes expects. Papers with the same
+// outcome are kept together so each bracket is one unbroken run.
+// Lanes are computed once: they don't depend on orientation, sort order or
+// window size.
+const laneLayout = CitationLayout.computeLanes({
+  nodes, edges: edgeList, groupOf: getOutcome, treeGap: ROOT_GAP
+});
+const laneOfFixed = laneLayout.lanes;
+window.layoutStats = laneLayout;   // layoutStats.crossings should be 0
+
 
 // ============================================================
 // GROUPS (bracket labels)
@@ -655,6 +695,22 @@ const gGrid = gAll.append("g"), gEdges = gAll.append("g"), gNodes = gAll.append(
 // Time-axis zoom state
 let timeK = 1, timePan = 0;
 
+// Labels sit beside their dot in the paper's own lane, on the side facing
+// newer years. The time axis leaves room for the longest one at its newest
+// end, and zooming scales the axis around its start so that room is kept.
+const LABEL_GAP = NODE_R + 8;
+const LABEL_SIZE = 15;
+let TIME0 = PAD_T, END_PAD = PAD_T;
+const measureCtx = document.createElement("canvas").getContext("2d");
+const labelText = n => [showNames ? n.label : "", statedFigure[n.id] || unitConversion[n.id] || ""].filter(Boolean).join("  ");
+function labelWidth(n) {
+  const t = labelText(n);
+  if (!t) return 0;
+  measureCtx.font = `600 ${LABEL_SIZE}px "IBM Plex Sans Condensed", "Arial Narrow", sans-serif`;
+  return measureCtx.measureText(t).width;
+}
+const zt = t => TIME0 + (t - TIME0) * timeK;
+
 // ============================================================
 // LAYOUT
 // ============================================================
@@ -670,89 +726,27 @@ function getChartDimensions() {
   return { w: chartEl.clientWidth || 600, h: chartEl.clientHeight || 400 };
 }
 
-function assignLanesCompact(yearIdx) {
-  const treeChildren = {};
-  nodes.forEach(n => { if (n.cites) (treeChildren[n.cites] ??= []).push(n.id); });
-
-  // Sort children by year within each parent
-  Object.keys(treeChildren).forEach(p => {
-    treeChildren[p].sort((a,b) => nodeMap[a].year - nodeMap[b].year);
-  });
-
-  const roots = nodes.filter(n => !n.cites).map(n => n.id);
-  const rootsByOutcome = { traced:[], phantom:[], stray:[] };
-  roots.forEach(r => {
-    const oc = getOutcome(r);
-    (rootsByOutcome[oc] || rootsByOutcome.stray).push(r);
-  });
-  Object.values(rootsByOutcome).forEach(arr => arr.sort((a,b) => nodeMap[a].year - nodeMap[b].year));
-
-  // Track which (lane, yearIndex) slots are occupied
-  const occupied = new Map(); // lane -> Set of yearIdx values
-
-  function isAvailable(lane, yIdx) {
-    const slots = occupied.get(lane);
-    if (!slots) return true;
-    return !slots.has(yIdx);
-  }
-
-  function occupy(lane, yIdx) {
-    if (!occupied.has(lane)) occupied.set(lane, new Set());
-    occupied.get(lane).add(yIdx);
-  }
-
-  function findNearestLane(targetLane, yIdx) {
-    if (isAvailable(targetLane, yIdx)) return targetLane;
-    for (let d = 1; d < 200; d++) {
-      if (targetLane + d >= 0 && isAvailable(targetLane + d, yIdx)) return targetLane + d;
-      if (targetLane - d >= 0 && isAvailable(targetLane - d, yIdx)) return targetLane - d;
-    }
-    return targetLane;
-  }
-
-  const laneOf = {};
-  let nextLane = 0;
-
-  ["traced", "phantom", "stray"].forEach((oc, gi) => {
-    if (rootsByOutcome[oc].length === 0) return;
-    if (gi > 0 && nextLane > 0) nextLane += ROOT_GAP;
-
-    rootsByOutcome[oc].forEach(rootId => {
-      function dfs(id, preferredLane) {
-        const yIdx = yearIdx[nodeMap[id].year];
-        const lane = findNearestLane(Math.max(0, preferredLane), yIdx);
-        laneOf[id] = lane;
-        occupy(lane, yIdx);
-        nextLane = Math.max(nextLane, lane + 1);
-        (treeChildren[id] || []).forEach(c => dfs(c, lane));
-      }
-      dfs(rootId, nextLane);
-    });
-  });
-
-  // Renumber lanes to be contiguous (0, 1, 2, ...)
-  const usedLanes = [...new Set(Object.values(laneOf))].sort((a,b) => a - b);
-  const remap = Object.fromEntries(usedLanes.map((l, i) => [l, i]));
-  Object.keys(laneOf).forEach(id => { laneOf[id] = remap[laneOf[id]]; });
-
-  return laneOf;
-}
-
 function layout() {
   const dim = getChartDimensions();
   const chartW = dim.w, chartH = dim.h;
 
   const years = [...new Set(nodes.map(n=>n.year))].sort((a,b)=> REVERSED ? b-a : a-b);
   const yearIdx = Object.fromEntries(years.map((y,i)=>[y,i]));
+  // Only as much room as the labels actually need past the newest year:
+  // a label on an older paper already has the years between it and the end.
+  const stepsToNewest = n => REVERSED ? yearIdx[n.year] : years.length - 1 - yearIdx[n.year];
+  const labelRoom = CitationLayout.labelRoom(
+    nodes.map(n => ({ width: labelWidth(n), distance: stepsToNewest(n) * BASE_YEAR_GAP })), LABEL_GAP);
+  TIME0 = PAD_T + (REVERSED ? labelRoom : 0);
+  END_PAD = REVERSED ? PAD_T : Math.max(PAD_T, labelRoom);
 
-  // Compact lane assignment — nodes in different years share lanes
-  const laneOf = assignLanesCompact(yearIdx);
+  const laneOf = laneOfFixed;
   const maxLane = Math.max(0, ...Object.values(laneOf));
 
   // Compute LANE_GAP to fill available space
   const fitDim = HORIZONTAL ? chartH : chartW;
   const LANE_GAP = maxLane > 0
-    ? Math.max(2 * NODE_R + 4, (fitDim - 2 * PAD_L) / maxLane)
+    ? Math.max(2 * NODE_R + 8, (fitDim - 2 * PAD_L) / maxLane)
     : fitDim;
 
   // Build positions
@@ -760,7 +754,7 @@ function layout() {
   nodes.forEach(n => {
     const lane = laneOf[n.id] ?? 0;
     const laneBase = PAD_L + lane * LANE_GAP;
-    const timeBase = PAD_T + yearIdx[n.year] * BASE_YEAR_GAP;
+    const timeBase = TIME0 + yearIdx[n.year] * BASE_YEAR_GAP;
     positions[n.id] = HORIZONTAL
       ? { x: timeBase, y: laneBase, lane: laneBase, time: timeBase }
       : { x: laneBase, y: timeBase, lane: laneBase, time: timeBase };
@@ -778,73 +772,18 @@ function layout() {
 // Get zoomed position for a node
 function zoomedPos(base) {
   if (!base) return null;
-  const zt = base.time * timeK;
+  const t = zt(base.time);
   return HORIZONTAL
-    ? { x: zt, y: base.lane }
-    : { x: base.lane, y: zt };
+    ? { x: t, y: base.lane }
+    : { x: base.lane, y: t };
 }
 
 // ============================================================
 // EDGE ROUTING
 // ============================================================
-// Check if a vertical segment on a given lane passes through any node
-function hasIntermediateNode(lanePx, t0, t1, srcId, tgtId) {
-  if (!currentPositions) return false;
-  const minT = Math.min(t0, t1) + NODE_R * 2;
-  const maxT = Math.max(t0, t1) - NODE_R * 2;
-  for (const n of nodes) {
-    if (n.id === srcId || n.id === tgtId) continue;
-    const p = currentPositions[n.id];
-    if (!p) continue;
-    const nL = HORIZONTAL ? p.y : p.x;
-    const nT = HORIZONTAL ? p.x : p.y;
-    if (Math.abs(nL - lanePx) < NODE_R * 2 && nT > minT && nT < maxT) return true;
-  }
-  return false;
-}
-
-function routeEdge(sp, tp, srcId, tgtId) {
-  const L = p => HORIZONTAL ? p.y : p.x, T = p => HORIZONTAL ? p.x : p.y;
-  const P = (l, t) => HORIZONTAL ? `${t},${l}` : `${l},${t}`;
-  const sL = L(sp), sT = T(sp), tL = L(tp), tT = T(tp);
-
-  // Straight line for same-lane-same-time
-  if (Math.abs(tL - sL) < 1 && Math.abs(tT - sT) < 1) return `M${P(sL, sT)} L${P(tL, tT)}`;
-
-  // Pure horizontal (same time)
-  if (Math.abs(tT - sT) < 1) return `M${P(sL, sT)} L${P(tL, tT)}`;
-
-  // Pure vertical (same lane) — check for intermediates
-  if (Math.abs(tL - sL) < 1) {
-    if (hasIntermediateNode(sL, sT, tT, srcId, tgtId)) {
-      // Offset the path to dodge intermediate nodes
-      const gap = baseLayout ? baseLayout.LANE_GAP : 60;
-      const off = Math.min(gap * 0.25, 20);
-      const r = Math.min(CORNER_R, off / 2, Math.abs(tT - sT) / 4);
-      const gT = Math.sign(tT - sT);
-      // Jog: source → offset → vertical → back → target
-      return `M${P(sL, sT)} `
-        + `L${P(sL, sT + gT * r)} Q${P(sL, sT + gT * r * 2)} ${P(sL + off, sT + gT * r * 2)} `
-        + `L${P(sL + off, tT - gT * r * 2)} Q${P(sL + off, tT - gT * r)} ${P(sL, tT - gT * r)} `
-        + `L${P(tL, tT)}`;
-    }
-    return `M${P(sL, sT)} L${P(tL, tT)}`;
-  }
-
-  // Cross-lane edge
-  const gL = Math.sign(tL - sL), gT = Math.sign(tT - sT);
-  const r = Math.min(CORNER_R, Math.abs(tL - sL) / 2, Math.abs(tT - sT) / 2);
-
-  // Check if vertical segment on source lane passes through a node
-  if (hasIntermediateNode(sL, sT, tT, srcId, tgtId)) {
-    // Route horizontal-first: source → horizontal to target lane → vertical to target
-    const r2 = Math.min(CORNER_R, Math.abs(tL - sL) / 2, Math.abs(tT - sT) / 2);
-    return `M${P(sL, sT)} L${P(tL - gL * r2, sT)} Q${P(tL, sT)} ${P(tL, sT + gT * r2)} L${P(tL, tT)}`;
-  }
-
-  // Default: vertical-first routing
-  return `M${P(sL, sT)} L${P(sL, tT - gT * r)} Q${P(sL, tT)} ${P(sL + gL * r, tT)} L${P(tL, tT)}`;
-}
+// Each line runs along the citing paper's own lane to the cited year, then
+// turns once into the cited paper (CitationLayout.routeEdge).
+const routeEdge = (sp, tp) => CitationLayout.routeEdge(sp, tp, { horizontal: HORIZONTAL, cornerRadius: CORNER_R });
 
 function edgeIsDead(e) {
   return !reachesOriginal(e.source);
@@ -868,7 +807,7 @@ function render() {
   timeK = 1; timePan = 0;
 
   // Size SVG: lane axis fills container; time axis extends for scrolling
-  const totalTime = PAD_T + (years.length) * BASE_YEAR_GAP + PAD_T;
+  const totalTime = TIME0 + (years.length - 1) * BASE_YEAR_GAP + END_PAD;
   const totalLane = L.totalLane || chartW;
 
   if (isMobile) {
@@ -884,8 +823,10 @@ function render() {
   } else {
     // Vertical: lanes fill width, time scrolls down.
     // CSS width:100% keeps it contained; attribute sets coordinate space.
-    svg.style("width", null);
-    svg.attr("width", chartW).attr("height", totalTime);
+    // When there are too many lanes to fit, scroll sideways instead of clipping.
+    const laneW = Math.max(chartW, totalLane);
+    svg.style("width", laneW > chartW ? "auto" : null);
+    svg.attr("width", laneW).attr("height", totalTime);
     chartEl.scrollLeft = 0;
   }
 
@@ -893,7 +834,7 @@ function render() {
   gGrid.selectAll("*").remove();
   const lEnd = totalLane;
   years.forEach((yr, i) => {
-    const tBase = PAD_T + i * BASE_YEAR_GAP;
+    const tBase = TIME0 + i * BASE_YEAR_GAP;
     if (HORIZONTAL) {
       gGrid.append("line").attr("class","grid-line").attr("data-time", tBase)
         .attr("x1",tBase).attr("y1",0).attr("x2",tBase).attr("y2",lEnd);
@@ -915,7 +856,7 @@ function render() {
     const dead = edgeIsDead(e), doubtful = edgeIsDoubtful(e);
     const cls = ["edge", dead?"is-dead":"", doubtful?"is-doubtful":""].filter(Boolean).join(" ");
     const marker = doubtful ? "url(#arr-doubtful)" : dead ? "url(#arr-dead)" : "url(#arr-normal)";
-    gEdges.append("path").attr("d", routeEdge(sp, tp, e.source, e.target)).attr("class", cls)
+    gEdges.append("path").attr("d", routeEdge(sp, tp)).attr("class", cls)
       .attr("marker-end", marker).attr("data-source", e.source).attr("data-target", e.target);
   });
 
@@ -943,17 +884,18 @@ function render() {
       g.append("circle").attr("r", NODE_R).attr("class","dot");
     }
 
-    // Stated figure or unit conversion badge
+    // Name, plus any differing figure, in the empty part of the paper's own
+    // lane on the side facing newer years. Lines only ever head back towards
+    // older years, so nothing else is drawn there.
     const badge = statedFigure[n.id] || unitConversion[n.id];
-    if (badge) {
-      g.append("text").attr("class","node-label figure").attr("x", NODE_R+6).attr("y", -NODE_R-2)
-        .attr("text-anchor","start").text(badge);
+    if (showNames || badge) {
+      const place = CitationLayout.labelPlacement({ horizontal: HORIZONTAL, newestFirst: REVERSED, gap: LABEL_GAP });
+      const label = g.append("text").attr("class",`node-label${n.id==="haynes1994"?" is-source":""}`)
+        .attr("dominant-baseline","central").attr("text-anchor", place.anchor)
+        .attr("transform", place.transform);
+      if (showNames) label.append("tspan").text(n.label);
+      if (badge) label.append("tspan").attr("class","figure").attr("dx", showNames ? 6 : 0).text(badge);
     }
-
-    // Label
-    const labelG = g.append("g").attr("class","name-group");
-    labelG.append("text").attr("class",`node-label${n.id==="haynes1994"?" is-source":""}`)
-      .attr("x",0).attr("y",NODE_R+16).attr("text-anchor","middle").text(n.label);
   });
 
   // Brackets
@@ -1031,14 +973,16 @@ function applyTimeZoom() {
   const { positions, years, maxLane, LANE_GAP, chartW, chartH, totalLane } = baseLayout;
 
   // Update SVG extent to match zoomed timeline
-  const lastYearT = (PAD_T + (years.length - 1) * BASE_YEAR_GAP) * timeK + PAD_T * 2;
+  const lastYearT = zt(TIME0 + (years.length - 1) * BASE_YEAR_GAP) + END_PAD;
   if (HORIZONTAL) {
     svg.style("width", "auto");
     svg.attr("width", Math.max(lastYearT, chartW));
     svg.attr("height", totalLane || chartH);
   } else {
+    const laneW = Math.max(chartW, totalLane || 0);
+    svg.style("width", laneW > chartW ? "auto" : null);
     svg.attr("height", Math.max(lastYearT, chartH));
-    svg.attr("width", totalLane || chartW);
+    svg.attr("width", laneW);
   }
 
   // Reposition nodes
@@ -1055,26 +999,24 @@ function applyTimeZoom() {
     const el = d3.select(this);
     const src = el.attr("data-source"), tgt = el.attr("data-target");
     const sp = zoomedPos(positions[src]), tp = zoomedPos(positions[tgt]);
-    if (sp && tp) el.attr("d", routeEdge(sp, tp, src, tgt));
+    if (sp && tp) el.attr("d", routeEdge(sp, tp));
   });
 
   // Reposition grid lines and year labels
   gGrid.selectAll(".grid-line").each(function() {
-    const tBase = +this.dataset.time;
-    const zt = tBase * timeK;
+    const t = zt(+this.dataset.time);
     if (HORIZONTAL) {
-      d3.select(this).attr("x1", zt).attr("x2", zt);
+      d3.select(this).attr("x1", t).attr("x2", t);
     } else {
-      d3.select(this).attr("y1", zt).attr("y2", zt);
+      d3.select(this).attr("y1", t).attr("y2", t);
     }
   });
   gGrid.selectAll(".year-label").each(function() {
-    const tBase = +this.dataset.time;
-    const zt = tBase * timeK;
+    const t = zt(+this.dataset.time);
     if (HORIZONTAL) {
-      d3.select(this).attr("x", zt);
+      d3.select(this).attr("x", t);
     } else {
-      d3.select(this).attr("y", zt + 4);
+      d3.select(this).attr("y", t + 4);
     }
   });
 }
@@ -1214,7 +1156,7 @@ document.querySelectorAll("[data-names]").forEach(btn => {
   btn.addEventListener("click", () => {
     showNames = btn.dataset.names === "show";
     document.querySelectorAll("[data-names]").forEach(b => b.setAttribute("aria-pressed", b === btn));
-    gNodes.selectAll(".name-group").attr("visibility", showNames ? "visible" : "hidden");
+    closeCard(); render();
   });
 });
 
@@ -1281,9 +1223,6 @@ function init() {
     // Sync sort button state to match REVERSED default
     document.querySelectorAll("[data-sort]").forEach(b => b.setAttribute("aria-pressed", b.dataset.sort === (REVERSED ? "newest" : "oldest")));
     render();
-    if (isMobile) {
-      gNodes.selectAll(".name-group").attr("visibility", "visible");
-    }
     checkHash();
 
 
@@ -1294,7 +1233,12 @@ function init() {
   }
 }
 
-document.fonts?.ready ? document.fonts.ready.then(init) : window.addEventListener("load", init);
+// Labels are measured to leave room for them, so wait for the condensed
+// face (the browser won't fetch it until asked), but not for long.
+const fontsLoaded = document.fonts
+  ? Promise.all(['500 15px "IBM Plex Sans Condensed"', '600 15px "IBM Plex Sans Condensed"'].map(f => document.fonts.load(f))).catch(() => {})
+  : Promise.resolve();
+Promise.race([fontsLoaded, new Promise(r => setTimeout(r, 1500))]).then(init);
 
 let resizeTimer;
 if (!isMobile) window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => render(), 200); });
