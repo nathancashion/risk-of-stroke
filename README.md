@@ -39,3 +39,24 @@ npm run preview  # preview the production build locally
 ```sh
 npm run check
 ```
+
+## Citation summary charts
+
+`make_summary_charts.py` draws the citation map's summary bar chart (papers that cite Haynes directly, trace back through intermediaries, cite a phantom source, or give no citation) in four aspect ratios: 16:9, 4:3, 1:1 and 9:16. The counts are read from the paper data in `static/citation-map.html`, so rerun it whenever papers are added or changed.
+
+It needs Node (already required for the site) and Python 3 with matplotlib:
+
+```sh
+python3 -m pip install matplotlib
+```
+
+Run it from the repo root:
+
+```sh
+python3 make_summary_charts.py
+```
+
+This writes `citation-summary-chart-16x9.png`, `-4x3.png`, `-1x1.png` and `-9x16.png` to the current folder and prints the counts it used. Options:
+
+- `--out <folder>` saves the PNGs somewhere else (the folder is created if needed).
+- `--page <file>` reads a different copy of the map, such as the one in the Obsidian vault.
