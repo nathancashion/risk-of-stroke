@@ -35,7 +35,10 @@ const { nodes, extraEdges } = vm.runInNewContext(html.slice(start, end) + "\n;({
 // Each paper's main citation (n.cites) first, then the extra ones.
 const edges = [];
 nodes.forEach(n => { if (n.cites) edges.push({ source: n.id, target: n.cites }); });
+// "listed" links (named in a review table, not cited for the figure) are drawn on
+// demand only and stay out of the layout.
 extraEdges.forEach(e => {
+  if (e.type === "listed") return;
   if (!edges.some(x => x.source === e.source && x.target === e.target)) edges.push({ source: e.source, target: e.target });
 });
 
