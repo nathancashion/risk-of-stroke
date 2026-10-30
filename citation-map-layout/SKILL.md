@@ -30,7 +30,10 @@ is a working reference that uses it.
 5. **Leave room for labels at the newest end of the time axis**, measured,
    not guessed: `CitationLayout.labelRoom`. With newest-first sorting that
    end is the start of the axis.
-6. **Nothing is hardcoded.** No positions, lane numbers or per-paper offsets.
+6. **The time axis is to scale.** One grid step is one calendar year, from
+   the oldest paper to the newest, including years with no papers. Never
+   collapse empty years into a single step.
+7. **Nothing is hardcoded.** No positions, lane numbers or per-paper offsets.
    Adding a paper means adding data; the layout re-solves on load.
 
 ## How the pieces connect
