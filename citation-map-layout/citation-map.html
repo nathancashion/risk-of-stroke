@@ -740,7 +740,10 @@ function layout() {
   const dim = getChartDimensions();
   const chartW = dim.w, chartH = dim.h;
 
-  const years = [...new Set(nodes.map(n=>n.year))].sort((a,b)=> REVERSED ? b-a : a-b);
+  // One grid step per calendar year, including years with no papers, so the
+  // time axis is to scale.
+  const yMin = Math.min(...nodes.map(n => n.year)), yMax = Math.max(...nodes.map(n => n.year));
+  const years = Array.from({ length: yMax - yMin + 1 }, (_, i) => yMin + i).sort((a,b)=> REVERSED ? b-a : a-b);
   const yearIdx = Object.fromEntries(years.map((y,i)=>[y,i]));
   // Only as much room as the labels actually need past the newest year:
   // a label on an older paper already has the years between it and the end.
