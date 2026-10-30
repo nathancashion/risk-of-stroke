@@ -272,7 +272,7 @@
     .chart > svg { width: auto; height: auto; min-height: 0; }
     .page.is-collapsed .sidebar { visibility: visible; overflow: visible; }
     .sidebar-foot { order: 3; padding: 14px 16px 6px; border-top: 0; }
-    .sidebar-foot .control:has([data-orientation]), .sidebar-foot .control:has([data-sort]) { display: none; }
+    .sidebar-foot .control:has([data-orientation]) { display: none; }
     .findings { order: 4; padding: 16px 16px 0; }
     .stops { order: 5; padding: 20px 16px 0; }
     .key { order: 6; padding: 20px 16px 36px; }
@@ -669,7 +669,7 @@ function buildFindings() {
 // SVG SETUP
 // ============================================================
 const isMobile = window.innerWidth <= 960;
-const BASE_YEAR_GAP = isMobile ? 90 : 140, PAD_L = isMobile ? 60 : 100, PAD_T = isMobile ? 36 : 60, NODE_R = isMobile ? 5 : 8, CORNER_R = 12;
+const BASE_YEAR_GAP = isMobile ? 90 : 140, PAD_L = isMobile ? 60 : 100, PAD_T = isMobile ? 48 : 60, NODE_R = isMobile ? 5 : 8, CORNER_R = 12;
 
 const chartEl = document.getElementById("chart");
 const svg = d3.select("#map-svg");
