@@ -338,7 +338,7 @@
           <li><svg width="22" height="16" aria-hidden="true"><line x1="0" y1="8" x2="22" y2="8" stroke="color-mix(in srgb, var(--untraced) 70%, var(--paper))" stroke-width="1.5"/></svg> Leads to a dead end with no source</li>
           <li><svg width="22" height="16" aria-hidden="true"><line x1="0" y1="8" x2="22" y2="8" stroke="var(--edge)" stroke-width="1.5" stroke-dasharray="4 3"/></svg> Doubtful link: misquoted, or the source is only probable</li>
           <li><svg width="22" height="16" aria-hidden="true"><line x1="1" y1="8" x2="21" y2="8" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="1 3" stroke-linecap="round"/></svg> Also listed (e.g. in a review table) but not cited for the figure; shown on hover</li>
-          <li class="is-text"><span><span class="figure-sample">1 in 10,000</span> beside a name: the paper states a different figure</span></li>
+          <li class="is-text"><span><span class="figure-sample">*</span> beside a name: the paper misquotes its source (its card gives the figure it states)</span></li>
         </ul>
         <p class="aside">Arrows point from a paper to the source it cites. Papers that cite the same source sit together, to its right.</p>
       </details>
@@ -620,6 +620,9 @@ const extraEdges = [
 
 const statedFigure = { fusco2011:"1 in 10,000", whedon2015:"1 in 200 million", ng2001:"1 in 200,000", rivett1995:"1 in 200,000" };
 const unitConversion = { difabio1999:"1 in 200,000 manipulations" };
+// Beside a name, an asterisk flags a paper that misquotes its source; the card
+// gives the figure it states. Other figures are explained in the card only.
+const figureMark = n => n.citeIntegrity === "misquoted" && statedFigure[n.id] ? "*" : "";
 
 // ============================================================
 // BUILD EDGES
@@ -749,7 +752,7 @@ const LABEL_GAP = NODE_R + 8;
 const LABEL_SIZE = 15;
 let TIME0 = PAD_T, END_PAD = PAD_T;
 const measureCtx = document.createElement("canvas").getContext("2d");
-const labelText = n => [showNames ? n.label : "", statedFigure[n.id] || unitConversion[n.id] || ""].filter(Boolean).join("  ");
+const labelText = n => [showNames ? n.label : "", figureMark(n)].filter(Boolean).join(" ");
 function labelWidth(n) {
   const t = labelText(n);
   if (!t) return 0;
@@ -939,17 +942,17 @@ function render() {
       g.append("circle").attr("r", NODE_R).attr("class","dot");
     }
 
-    // Name, plus any differing figure, in the empty part of the paper's own
+    // Name, plus an asterisk for a misquote, in the empty part of the paper's own
     // lane on the side facing newer years. Lines only ever head back towards
     // older years, so nothing else is drawn there.
-    const badge = statedFigure[n.id] || unitConversion[n.id];
+    const badge = figureMark(n);
     if (showNames || badge) {
       const place = CitationLayout.labelPlacement({ horizontal: HORIZONTAL, newestFirst: REVERSED, gap: LABEL_GAP });
       const label = g.append("text").attr("class",`node-label${n.id==="haynes1994"?" is-source":""}`)
         .attr("dominant-baseline","central").attr("text-anchor", place.anchor)
         .attr("transform", place.transform);
       if (showNames) label.append("tspan").text(n.label);
-      if (badge) label.append("tspan").attr("class","figure").attr("dx", showNames ? 6 : 0).text(badge);
+      if (badge) label.append("tspan").attr("class","figure").attr("dx", showNames ? 2 : 0).text(badge);
     }
   });
 
