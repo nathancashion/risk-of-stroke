@@ -95,6 +95,34 @@ first (`document.fonts.load(...)`); the browser doesn't fetch it until asked.
    edge. Also check `layoutStats.crossings === 0`. Don't call a layout change
    done until both checks pass.
 
+## The radial view
+
+The site page (`static/citation-map.html`) also has a radial view, chosen
+with the View switch. It applies the same rules with **ring in place of
+year**:
+
+- **Ring = citation steps.** The inner ring is where each chain ends (the
+  original data, a phantom source, or a paper with no reference). A paper's
+  ring is one more than the furthest-out paper it cites, so every line
+  heads inwards.
+- **Spoke = lane.** Each paper has its own angle. The order round the circle
+  comes from `computeLanes`, with each paper's ring passed as its `year` and
+  `anyPosition: true`. The page keeps the result in `radialStats`, and
+  `radialStats.crossings` must be 0.
+- **Lines** run in along the citing paper's spoke to the cited ring, turn
+  once, then follow that ring into the cited paper.
+- **Labels** sit on the outer side of the dot, along the spoke, turned so
+  they read left to right.
+- **Dot area** follows the paper's `citations` count. Papers with no count
+  get the smallest dot.
+- **Spacing is measured, not set.** Ring spacing clears every label an arc
+  passes, and the angle between neighbouring spokes clears their dots and
+  labels. Spare angle is shared out evenly.
+
+To check it, switch to Radial for both name settings and run
+`CitationLayout.checkLayout({ rotatedLabels: true })`. Each call must
+return `ok: true`.
+
 ## Mistakes that caused the earlier problems
 
 - **"Compact" lanes** (papers in different years sharing a lane): lines run

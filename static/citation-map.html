@@ -165,10 +165,13 @@
   .seg button:not([aria-pressed="true"]):hover { color: var(--ink); }
   button:focus-visible, summary:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
   .hint { margin: 0; font-size: 12.5px; color: var(--muted); }
+  .page.is-radial .timeline-only, .page:not(.is-radial) .radial-only { display: none; }
 
   /* --- map --- */
   .grid-line { stroke: var(--grid); stroke-width: 0.5; }
   .year-label { font: 500 14px var(--narrow); fill: var(--faint); font-variant-numeric: tabular-nums; }
+  .ring-line { fill: none; }
+  .ring-label { paint-order: stroke; stroke: var(--paper); stroke-width: 5px; stroke-linejoin: round; }
   .chart {
     --edge-phantom: color-mix(in srgb, var(--phantom) 80%, var(--paper));
     --edge-stray: color-mix(in srgb, var(--untraced) 70%, var(--paper));
@@ -231,6 +234,7 @@
   .card .journal { margin: 2px 0 0; font: italic 400 15px/1.35 var(--serif); color: var(--muted); }
   .card .status { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
   .card .status.is-bad, .card .figure-note { color: var(--untraced); }
+  .card .cited-count { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
   .card .figure-note { margin: 4px 0 0; font-size: 12.5px; font-weight: 600; }
   .card .unit-note { margin: 4px 0 0; font-size: 12.5px; font-weight: 500; color: var(--ink-2); }
   .card blockquote {
@@ -334,22 +338,31 @@
           <li><svg width="22" height="16" aria-hidden="true"><line x1="0" y1="8" x2="22" y2="8" stroke="color-mix(in srgb, var(--phantom) 80%, var(--paper))" stroke-width="1.5"/></svg> Leads to a phantom source</li>
           <li><svg width="22" height="16" aria-hidden="true"><line x1="0" y1="8" x2="22" y2="8" stroke="color-mix(in srgb, var(--untraced) 70%, var(--paper))" stroke-width="1.5"/></svg> Leads to a dead end with no source</li>
           <li><svg width="22" height="16" aria-hidden="true"><line x1="0" y1="8" x2="22" y2="8" stroke="var(--edge)" stroke-width="1.5" stroke-dasharray="4 3"/></svg> Doubtful link: misquoted, or the source is only probable</li>
+          <li class="radial-only"><svg width="26" height="22" aria-hidden="true"><circle cx="4" cy="17" r="3" fill="var(--cited)"/><circle cx="17" cy="13" r="8.5" fill="var(--cited)"/></svg> Bigger dot: cited more often (area follows the count)</li>
           <li class="is-text"><span><span class="figure-sample">*</span> beside a name: the paper misquotes its source (its card gives the figure it states)</span></li>
         </ul>
-        <p class="aside">Arrows point from a paper to the source it cites. Papers that cite the same source sit together, to its right.</p>
+        <p class="aside timeline-only">Arrows point from a paper to the source it cites. Papers that cite the same source sit together, to its right.</p>
+        <p class="aside radial-only">The inner ring is where each chain ends. Each ring outward is one more citation step from there. Arrows point from a paper to the source it cites.</p>
       </details>
     </div>
 
     <div class="sidebar-foot">
       <section class="controls" aria-label="View">
         <div class="control">
+          <span class="control-label" id="view-label">View</span>
+          <div class="seg" role="group" aria-labelledby="view-label">
+            <button type="button" data-view="timeline" aria-pressed="true">Timeline</button>
+            <button type="button" data-view="radial" aria-pressed="false">Radial</button>
+          </div>
+        </div>
+        <div class="control timeline-only">
           <span class="control-label" id="timeline-label">Timeline</span>
           <div class="seg" role="group" aria-labelledby="timeline-label">
             <button type="button" data-orientation="vertical" aria-pressed="true">Vertical</button>
             <button type="button" data-orientation="horizontal" aria-pressed="false">Horizontal</button>
           </div>
         </div>
-        <div class="control">
+        <div class="control timeline-only">
           <span class="control-label" id="sort-label">Sort</span>
           <div class="seg" role="group" aria-labelledby="sort-label">
             <button type="button" data-sort="oldest" aria-pressed="false">Oldest first</button>
@@ -403,197 +416,197 @@ const nodes = [
     fullCite:"Haynes, M. J. (1994). Chiropractic Journal of Australia, 24, 42–46.",
     quote:"perhaps fewer than <strong>five cases of manipulation-related stroke per 100,000 patients</strong>",
     note:"5/100,000 = 1/20,000. Original data source, based on stroke incidence in Perth, Australia relative to chiropractic utilization.",
-    type:"original", cites:null, url:null, citeIntegrity:null },
+    type:"original", cites:null, url:null, citeIntegrity:null, citations:74 },
   { id:"assendelft1996", label:"Assendelft et al.", year:1996, journal:"The Journal of Family Practice",
     fullCite:"Assendelft, W. J., Bouter, L. M., & Knipschild, P. G. (1996). TJFP, 42(5), 475–480.",
     quote:"He concluded that the incidence was less than <strong>5 per 100,000 patients who had received neck manipulation.</strong>",
     note:"Accurately cites Haynes. 1 in 20,000 is the upper limit.",
-    type:"cites_source", cites:"haynes1994", url:null, citeIntegrity:null },
+    type:"cites_source", cites:"haynes1994", url:null, citeIntegrity:null, citations:460 },
   { id:"difabio1999", label:"Di Fabio", year:1999, journal:"Physical Therapy",
     fullCite:"Di Fabio (1999). Manipulation of the cervical spine: risks and benefits. Physical Therapy, 79(1), 50–65.",
     quote:"Other estimates… have been in the range of <strong>1 in 200,000</strong> manipulations to 1 in 3 million manipulations.",
     note:"Cites Haynes (1994) directly. States ‘1 in 200,000 manipulations’ — a unit conversion from Haynes’s ‘5 per 100,000 patients’ using ~2 manipulations per patient per year. Not a transcription error, but a change of denominator.",
-    type:"cites_source", cites:"haynes1994", url:"https://academic.oup.com/ptj/article-abstract/79/1/50/2857770", citeIntegrity:null },
+    type:"cites_source", cites:"haynes1994", url:"https://academic.oup.com/ptj/article-abstract/79/1/50/2857770", citeIntegrity:null, citations:208 },
   { id:"vickers1999", label:"Vickers & Zollman", year:1999, journal:"BMJ",
     fullCite:"Vickers, A., & Zollman, C. (1999). BMJ, 319(7218), 1176–1179.",
     quote:"Estimates of such severe adverse events vary widely, ranging from <strong>1 in 20 000 patients</strong>… to 1 per million procedures.",
     note:"BMJ’s ABC series teaching article. No reference list — only further reading. Gives no source for the 1 in 20,000 figure.",
-    type:"no_citation", cites:null, url:"https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1116959/", citeIntegrity:null },
+    type:"no_citation", cites:null, url:"https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1116959/", citeIntegrity:null, citations:69 },
   { id:"saeed2000", label:"Saeed et al.", year:2000, journal:"Canadian Journal of Neurological Sciences",
     fullCite:"Saeed, A. B. et al. (2000). CJNS, 27(4), 292–296.",
     quote:null,
     note:"Cited by Jones (2015), Almuaigel (2020), and Baddam (2025) for ‘1 in 20,000’ but contains NO risk estimate. Phantom source.",
-    type:"phantom", cites:null, url:"https://doi.org/10.1017/S0317167100001025", citeIntegrity:null },
+    type:"phantom", cites:null, url:"https://doi.org/10.1017/S0317167100001025", citeIntegrity:null, citations:142 },
   { id:"mann2001", label:"Mann & Refshauge", year:2001, journal:"Australian Journal of Physiotherapy",
     fullCite:"Mann, T., & Refshauge, K. M. (2001). AJP, 47(4), 255–266.",
     quote:"from <strong>one in 20,000 patients</strong> receiving cervical manipulation to one per million (Vickers & Zollman, 1999)",
     note:"Cites Vickers & Zollman (1999) for the 1 in 20,000.",
-    type:"cites_source", cites:"vickers1999", url:"https://doi.org/10.1016/S0004-9514(14)60273-7", citeIntegrity:null },
+    type:"cites_source", cites:"vickers1999", url:"https://doi.org/10.1016/S0004-9514(14)60273-7", citeIntegrity:null, citations:62 },
   { id:"diduro2001", label:"Di Duro", year:2001, journal:"Stroke",
     fullCite:"Di Duro, J. O. (2001). Stroke, 32(10), 2440.",
     quote:"Estimates… range from 0.1 to <strong>5.0 per 100 000</strong>.",
     note:"Letter to the editor. Cites Assendelft (1996) who properly cites Haynes (1994).",
-    type:"cites_source", cites:"assendelft1996", url:"https://www.ahajournals.org/doi/10.1161/str.32.10.2440-a", citeIntegrity:null },
+    type:"cites_source", cites:"assendelft1996", url:"https://www.ahajournals.org/doi/10.1161/str.32.10.2440-a", citeIntegrity:null, citations:3 },
   { id:"stevinson2001", label:"Stevinson et al.", year:2001, journal:"J Royal Soc Medicine",
     fullCite:"Stevinson, C. et al. (2001). JRSM, 94(3), 107–110.",
     quote:"a figure of <strong>5 strokes per 100 000 neck patients</strong> treated over 5 years.",
     note:"Cites Haynes (1994) directly and accurately. Unusual for describing the underlying method.",
-    type:"cites_source", cites:"haynes1994", url:"https://doi.org/10.1177/014107680109400302", citeIntegrity:null },
+    type:"cites_source", cites:"haynes1994", url:"https://doi.org/10.1177/014107680109400302", citeIntegrity:null, citations:97 },
   { id:"gross2002", label:"Gross et al.", year:2002, journal:"Manual Therapy",
     fullCite:"Gross, A. R. et al. (2002). Manual Therapy, 7(4), 193–205.",
     quote:"Estimates of harm… range from <strong>one in 20,000</strong> to five in 10,000,000.",
     note:"Cites Assendelft (1996) along with Grieve (1986) and Hurwitz (1996).",
-    type:"cites_source", cites:"assendelft1996", url:"https://doi.org/10.1054/math.2002.0477", citeIntegrity:null },
+    type:"cites_source", cites:"assendelft1996", url:"https://doi.org/10.1054/math.2002.0477", citeIntegrity:null, citations:81 },
   { id:"mitchell2004", label:"Mitchell et al.", year:2004, journal:"Manual Therapy",
     fullCite:"Mitchell, J. et al. (2004). Manual Therapy, 9(4), 220–227.",
     quote:"estimates… ranging from <strong>one in 20,000</strong> to five in 10,000,000 cervical spine manipulations.",
     note:"Cites Gross et al. (2002), which cites Assendelft (1996), which cites Haynes (1994).",
-    type:"cites_source", cites:"gross2002", url:"https://doi.org/10.1016/j.math.2004.03.005", citeIntegrity:null },
+    type:"cites_source", cites:"gross2002", url:"https://doi.org/10.1016/j.math.2004.03.005", citeIntegrity:null, citations:58 },
   { id:"cassidy2008", label:"Cassidy et al.", year:2008, journal:"Spine",
     fullCite:"Cassidy, J. D. et al. (2008). Spine, 33(4 Suppl), S176–183.",
     quote:null,
     note:"Cited by Aleyadeh (2026) for ‘1 in 20,000’ but contains NO such figure. Reports 818 VBA strokes in 109M person-years. Phantom source.",
-    type:"phantom", cites:null, url:"https://www.ovid.com/jnls/spinejournal/abstract/10.1097/brs.0b013e3181644600", citeIntegrity:null },
+    type:"phantom", cites:null, url:"https://www.ovid.com/jnls/spinejournal/abstract/10.1097/brs.0b013e3181644600", citeIntegrity:null, citations:649 },
   { id:"gouveia2009", label:"Gouveia et al.", year:2009, journal:"Spine",
     fullCite:"Gouveia, L. O. et al. (2009). Spine, 34(11), E405–413.",
     quote:"varying from <strong>5 strokes/100,000 manipulations</strong> to 1.46/10,000,000",
     note:"Cites Haynes (1994) directly. 5/100,000 = 1/20,000.",
-    type:"cites_source", cites:"haynes1994", url:"https://doi.org/10.1097/BRS.0b013e3181a16d63", citeIntegrity:null },
+    type:"cites_source", cites:"haynes1994", url:"https://doi.org/10.1097/BRS.0b013e3181a16d63", citeIntegrity:null, citations:207 },
   { id:"preul2010", label:"Preul et al.", year:2010, journal:"Clinical Neuroradiology",
     fullCite:"Preul, C. et al. (2010). Clinical Neuroradiology, 20(4), 255–259.",
     quote:"estimates… range from <strong>1 in 20,000</strong> to 1 in 5,846,381.",
     note:"Case report. Cites Vickers & Zollman (1999) for the 1 in 20,000 figure.",
-    type:"cites_source", cites:"vickers1999", url:"https://doi.org/10.1007/s00062-010-0021-x", citeIntegrity:null },
+    type:"cites_source", cites:"vickers1999", url:"https://doi.org/10.1007/s00062-010-0021-x", citeIntegrity:null, citations:21 },
   { id:"fusco2011", label:"Fusco & Harrigan", year:2011, journal:"Neurosurgery",
     fullCite:"Fusco, M. R. & Harrigan, M. R. (2011). Neurosurgery, 68(2), 517–530.",
     quote:"associated with <strong>1/10,000</strong> to 1/2,000,000 cervical manipulations",
     note:"Cites Assendelft but gives 1/10,000 instead of 1/20,000 — doubles the risk. Misquoted.",
-    type:"cites_source", cites:"assendelft1996", url:"https://doi.org/10.1227/NEU.0b013e3181fe2fda", citeIntegrity:"misquoted" },
+    type:"cites_source", cites:"assendelft1996", url:"https://doi.org/10.1227/NEU.0b013e3181fe2fda", citeIntegrity:"misquoted", citations:121 },
   { id:"engelter2013", label:"Engelter et al.", year:2013, journal:"Neurology",
     fullCite:"Engelter, S. T. et al. (2013). Neurology, 80(21), 1950–1957.",
     quote:"1 in 2 million to <strong>5 in 100,000 patients</strong>",
     note:"Cites Gouveia (2009), which cites Haynes (1994): one intermediary.",
-    type:"cites_source", cites:"gouveia2009", url:"https://doi.org/10.1212/WNL.0b013e318293e2eb", citeIntegrity:null },
+    type:"cites_source", cites:"gouveia2009", url:"https://doi.org/10.1212/WNL.0b013e318293e2eb", citeIntegrity:null, citations:179 },
   { id:"jones2015", label:"Jones et al.", year:2015, journal:"Baylor Univ. Med Center Proceedings",
     fullCite:"Jones, J. et al. (2015). BUMC Proceedings, 28(1), 88–90.",
     quote:"An estimated <strong>1 in 20,000 spinal manipulations</strong> results in a vertebral artery aneurysm/dissection…",
     note:"Cites Saeed (2000), but Saeed provides NO risk estimate — phantom source.",
-    type:"cites_source", cites:"saeed2000", url:"https://doi.org/10.1080/08998280.2015.11929202", citeIntegrity:null },
+    type:"cites_source", cites:"saeed2000", url:"https://doi.org/10.1080/08998280.2015.11929202", citeIntegrity:null, citations:15 },
   { id:"kosloff2015", label:"Kosloff et al.", year:2015, journal:"Chiropractic & Manual Therapies",
     fullCite:"Kosloff, T. M. et al. (2015). Chiropractic & Manual Therapies, 23(1), 19.",
     quote:"the frequency… varied between <strong>5 strokes/100,000 manipulations</strong> to 1.46/10,000,000",
     note:"Case-control study. Directly quotes Gouveia (2009). 5/100,000 = 1/20,000.",
-    type:"cites_source", cites:"gouveia2009", url:"http://www.chiromt.com/content/23/1/19", citeIntegrity:null },
+    type:"cites_source", cites:"gouveia2009", url:"http://www.chiromt.com/content/23/1/19", citeIntegrity:null, citations:38 },
   { id:"whedon2015", label:"Whedon et al.", year:2015, journal:"JMPT",
     fullCite:"Whedon, J. M. et al. (2015). JMPT, 38(2), 93–101.",
     quote:"ranged from <strong>0.05</strong> to 1.46 <strong>per 10 000 000 manipulations.</strong>",
     note:"Cites Gouveia (2009) but converts its figure wrongly. Gouveia gives 5/100,000 (= 500/10M); Whedon writes 0.05/10M — 10,000× too small. Misquoted.",
-    type:"cites_source", cites:"gouveia2009", url:"http://www.jmptonline.org/article/S016147541400267X/fulltext", citeIntegrity:"misquoted" },
+    type:"cites_source", cites:"gouveia2009", url:"http://www.jmptonline.org/article/S016147541400267X/fulltext", citeIntegrity:"misquoted", citations:38 },
   { id:"neeb2016", label:"Neeb & Reuter", year:2016, journal:"Treatment-Related Stroke (Cambridge UP)",
     fullCite:"Neeb & Reuter (2016). Treatment-Related Stroke, CUP.",
     quote:"estimated… between 1/585 million and <strong>1/20,000 manipulations</strong>.",
     note:"Cites Assendelft (1996) along with Haldeman (2001) and Showalter (1997).",
-    type:"cites_source", cites:"assendelft1996", url:"https://www.cambridge.org/core/books/treatmentrelated-stroke/stroke-after-chiropractic-manipulations/C4EF918806A0A49655CD263536B27B98", citeIntegrity:null },
+    type:"cites_source", cites:"assendelft1996", url:"https://www.cambridge.org/core/books/treatmentrelated-stroke/stroke-after-chiropractic-manipulations/C4EF918806A0A49655CD263536B27B98", citeIntegrity:null, citations:1 },
   { id:"church2016", label:"Church et al.", year:2016, journal:"Cureus",
     fullCite:"Church, E. W. et al. (2016). Cureus, 8(2), 498.",
     quote:null,
     note:"Cited by Aleyadeh (2026) for ‘1 in 20,000’ but this systematic review contains NO such figure. Phantom source.",
-    type:"phantom", cites:null, url:"http://www.cureus.com/articles/4155", citeIntegrity:null },
+    type:"phantom", cites:null, url:"http://www.cureus.com/articles/4155", citeIntegrity:null, citations:90 },
   { id:"nielsen2017", label:"Nielsen et al.", year:2017, journal:"Systematic Reviews",
     fullCite:"Nielsen, S. M. et al. (2017). Systematic Reviews, 6(1), 64.",
     quote:"the estimates… ranges from <strong>1 in 20,000 manipulations</strong> to 1 in 250,000,000",
     note:"Overview of reviews. Its range starts from Gouveia (2009), Assendelft (1996) and Gross et al. (2002).",
-    type:"cites_source", cites:"gouveia2009", url:"https://doi.org/10.1186/s13643-017-0458-y", citeIntegrity:null },
+    type:"cites_source", cites:"gouveia2009", url:"https://doi.org/10.1186/s13643-017-0458-y", citeIntegrity:null, citations:76 },
   { id:"paul2020", label:"Paul & Kumar", year:2020, journal:"Int J Contemporary Pediatrics",
     fullCite:"Paul, A. J. & Kumar, R. (2020). IJCP, 7(2), 445–448.",
     quote:"An average of <strong>1 in 20000 neck manipulations</strong> result in ischemic infarct…",
     note:"No inline citation. Wording closely follows Jones (2015), which is in its reference list. Also references Di Fabio (1999).",
-    type:"no_citation", cites:"jones2015", citeIntegrity:"probable" },
+    type:"no_citation", cites:"jones2015", citeIntegrity:"probable", citations:0 },
   { id:"almuaigel2020", label:"Almuaigel et al.", year:2020, journal:"Cureus",
     fullCite:"Almuaigel, M. F. et al. (2020). Cureus, 12(7), e9310.",
     quote:"It is estimated that <strong>1 in 20,000 spinal manipulations</strong> results in a vertebral artery dissection.",
     note:"Cites Saeed (2000), but Saeed provides NO risk estimate — phantom source.",
-    type:"cites_source", cites:"saeed2000", url:"https://doi.org/10.7759/cureus.9310", citeIntegrity:null },
+    type:"cites_source", cites:"saeed2000", url:"https://doi.org/10.7759/cureus.9310", citeIntegrity:null, citations:7 },
   { id:"xia2021", label:"Xia", year:2021, journal:"Stroke: Vasc Interv Neurology (abstract)",
     fullCite:"Xia, C. et al. (2021). Stroke: VIN, 1(Suppl 1), e12091.",
     quote:"It is estimated that <strong>1 in 20,000 spinal manipulation</strong> results in vertebral artery aneurysm/dissection.",
     note:"Conference abstract, case report. No citation. Phrasing closely resembles Jones (2015), suggesting it as the likely uncited source.",
-    type:"no_citation", cites:null, url:"https://doi.org/10.1161/SVIN.01.suppl_1.000200", citeIntegrity:null },
+    type:"no_citation", cites:null, url:"https://doi.org/10.1161/SVIN.01.suppl_1.000200", citeIntegrity:null, citations:2 },
   { id:"piening2022", label:"Piening et al.", year:2022, journal:"SAGE Open Medical Case Reports",
     fullCite:"Piening, K. et al. (2022). SOMCR, 10, 2050313X221122451.",
     quote:"incidence stated <strong>between 1 in 20,000 and 1 in a million</strong>",
     note:"Cites Vickers & Zollman (1999), a BMJ teaching article with no source for the figure.",
-    type:"cites_source", cites:"vickers1999", url:"https://doi.org/10.1177/2050313X221122451", citeIntegrity:null },
+    type:"cites_source", cites:"vickers1999", url:"https://doi.org/10.1177/2050313X221122451", citeIntegrity:null, citations:5 },
   { id:"britt2023", label:"Britt & Agarwal", year:2023, journal:"StatPearls",
     fullCite:"Britt, T. B. & Agarwal, S. (2023). StatPearls Publishing.",
     quote:"It is estimated that <strong>1 in 20,000 cervical spine manipulations</strong> cause a stroke.",
     note:"Listed references don’t mention stroke risk. Claim since removed from article.",
-    type:"no_citation", cites:null, url:"https://www.ncbi.nlm.nih.gov/books/NBK441827/", citeIntegrity:null },
+    type:"no_citation", cites:null, url:"https://www.ncbi.nlm.nih.gov/books/NBK441827/", citeIntegrity:null, citations:15 },
   { id:"iwamoto2024", label:"Iwamoto et al.", year:2024, journal:"Cureus",
     fullCite:"Iwamoto, S. et al. (2024). Cureus, 16(2).",
     quote:"it is estimated that <strong>one in 20,000 spinal manipulations</strong> has resulted in VADs.",
     note:"Cites Xia (2021), a conference abstract with no citation of its own.",
-    type:"cites_source", cites:"xia2021", url:"https://doi.org/10.7759/cureus.54990", citeIntegrity:null },
+    type:"cites_source", cites:"xia2021", url:"https://doi.org/10.7759/cureus.54990", citeIntegrity:null, citations:1 },
   { id:"arnoldratliff2025", label:"Arnold-Ratliff", year:2025, journal:"The Cut (New York Magazine)",
     fullCite:"Arnold-Ratliff, K. (2025, April 25). The Cut.",
     quote:"<strong>1 in 20,000 chiropractic neck adjustments</strong> results in an injury…",
     note:"Popular press. Cites Xia (2021), calling it ‘a study in the journal Stroke.’",
-    type:"cites_source", cites:"xia2021", url:"https://www.thecut.com/article/neck-cracking-chiropractic-surgery-spine.html", citeIntegrity:null },
+    type:"cites_source", cites:"xia2021", url:"https://www.thecut.com/article/neck-cracking-chiropractic-surgery-spine.html", citeIntegrity:null, citations:null },
   { id:"baddam2025", label:"Baddam et al.", year:2025, journal:"Ann Surg Case Rep & Images",
     fullCite:"Baddam, S. et al. (2025). ASCRI, 2(1), 1074.",
     quote:"the estimated risk… is approximately <strong>1 in 20,000 manipulations</strong>",
     note:"Cites Saeed (2000), but Saeed provides NO risk estimate — phantom source.",
-    type:"cites_source", cites:"saeed2000", url:"https://doi.org/10.52768/2996-7414/1074", citeIntegrity:null },
+    type:"cites_source", cites:"saeed2000", url:"https://doi.org/10.52768/2996-7414/1074", citeIntegrity:null, citations:0 },
   { id:"aleyadeh2026", label:"Aleyadeh et al.", year:2026, journal:"The Neurologist",
     fullCite:"Aleyadeh, R. et al. (2026). The Neurologist, 31(2), 46–48.",
     quote:"the absolute risk… is very low, estimated between <strong>1 in 20,000</strong> to 1 in several million",
     note:"Cites Cassidy (2008) and Church (2016) — neither contains the ‘1 in 20,000’ estimate. Both are phantom sources.",
-    type:"cites_source", cites:"church2016", url:"https://journals.lww.com/theneurologist/abstract/2026/03000/cervical_artery_dissection_diagnosed_following.4.aspx", citeIntegrity:null },
+    type:"cites_source", cites:"church2016", url:"https://journals.lww.com/theneurologist/abstract/2026/03000/cervical_artery_dissection_diagnosed_following.4.aspx", citeIntegrity:null, citations:6 },
   { id:"haynes2002", label:"Haynes et al.", year:2002, journal:"J Manipulative Physiol Therapeutics",
     fullCite:"Haynes, M. J. et al. (2002). JMPT, 25(6), 370–383.",
     quote:"Although rare, that is, perhaps less than <strong>5 cases per 100,000 patients</strong>, stroke caused by injury of the vertebral artery is the most feared complication…",
     note:"Self-citation. Haynes cites his own 1994 paper directly.",
-    type:"cites_source", cites:"haynes1994", url:"https://jmpt.kglmeridian.com/view/journals/ymmt/25/6/article-p370.xml", citeIntegrity:null },
+    type:"cites_source", cites:"haynes1994", url:"https://jmpt.kglmeridian.com/view/journals/ymmt/25/6/article-p370.xml", citeIntegrity:null, citations:74 },
   { id:"haynes2002a", label:"Haynes", year:2002, journal:"J Manipulative Physiol Therapeutics",
     fullCite:"Haynes, M. J. (2002). JMPT, 25(9), 556–567.",
     quote:"<strong>fewer than 5 cases per 100,000 patients</strong> who have received this form of therapy.",
     note:"Self-citation. Haynes cites his own 1994 paper directly. Lists multiple estimates.",
-    type:"cites_source", cites:"haynes1994", url:"https://jmpt.kglmeridian.com/doi/10.1067/mmt.2002.127077", citeIntegrity:null },
+    type:"cites_source", cites:"haynes1994", url:"https://jmpt.kglmeridian.com/doi/10.1067/mmt.2002.127077", citeIntegrity:null, citations:66 },
   { id:"ng2001", label:"Ng & Doube", year:2001, journal:"NZ Medical Journal",
     fullCite:"Ng, K. P. L. & Doube, A. (2001). NZ Med J, 114(1143), 498.",
     quote:"Estimates of complications range from <strong>one in 200,000</strong> (Haynes 1994) to one in 3 million <strong>manipulations</strong>.",
     note:"Case report. Cites Haynes (1994) directly. Uses the 5-year incidence figure (1 in 200,000 manipulations).",
-    type:"cites_source", cites:"haynes1994", url:"https://www.proquest.com/openview/d2987dd3bc8902e4c9e59d135a9bea64/1?pq-origsite=gscholar&cbl=1056336", citeIntegrity:null },
+    type:"cites_source", cites:"haynes1994", url:"https://www.proquest.com/openview/d2987dd3bc8902e4c9e59d135a9bea64/1?pq-origsite=gscholar&cbl=1056336", citeIntegrity:null, citations:15 },
   { id:"rivett1995", label:"Rivett", year:1995, journal:"Journal of Manual & Manipulative Therapy",
     fullCite:"Rivett, D. A. (1995). Journal of Manual & Manipulative Therapy, 3(4), 144–151.",
     quote:"It was calculated that there were <strong>approximately five cases of manipulation related stroke per 1,000,000 patients</strong> attending chiropractors in Australia (i.e. an incident rate of 1 in 200,000).",
     note:"Cites Haynes (1994) directly, but misquotes it: Haynes estimated about 5 per 1,000,000 cervical manipulations over 5 years, not per patient.",
-    type:"cites_source", cites:"haynes1994", url:"https://doi.org/10.1179/jmt.1995.3.4.144", citeIntegrity:"misquoted" },
+    type:"cites_source", cites:"haynes1994", url:"https://doi.org/10.1179/jmt.1995.3.4.144", citeIntegrity:"misquoted", citations:15 },
   { id:"vautravers2000", label:"Vautravers & Maigne", year:2000, journal:"Revue du Rhumatisme",
     fullCite:"Vautravers, P. & Maigne, J.-Y. (2000). Revue du Rhumatisme, 67(5), 349–354.",
     quote:"Haynes (1994) notes fewer than <strong>five accidents per 100,000 [cervical manipulations]</strong>.",
     note:"Cites Haynes (1994) directly. Quote translated from French; the bracketed denominator is inferred, not stated.",
-    type:"cites_source", cites:"haynes1994", url:"https://www.sciencedirect.com/science/article/pii/S1169833000800022", citeIntegrity:null },
+    type:"cites_source", cites:"haynes1994", url:"https://www.sciencedirect.com/science/article/pii/S1169833000800022", citeIntegrity:null, citations:14 },
   { id:"marx2009", label:"Marx et al.", year:2009, journal:"Fortschritte der Neurologie · Psychiatrie",
     fullCite:"Marx, P. et al. (2009). Fortschritte der Neurologie · Psychiatrie, 77(2), 83–90.",
     quote:"Estimates of the rate of ischemic complications after cervical spine manipulation vary widely. […] Haynes (1994) reported a rate of <strong>5/100,000</strong> for the Perth region of Australia.",
     note:"Cites Haynes (1994) directly. Quote translated from German.",
-    type:"cites_source", cites:"haynes1994", url:"http://www.thieme-connect.de/DOI/DOI?10.1055/s-0028-1109083", citeIntegrity:null },
+    type:"cites_source", cites:"haynes1994", url:"http://www.thieme-connect.de/DOI/DOI?10.1055/s-0028-1109083", citeIntegrity:null, citations:16 },
   { id:"barry2011", label:"Barry et al.", year:2011, journal:"Rapport de l'unité U669 de l'Inserm",
     fullCite:"Barry, C., Dufaure, I. & Falissard, B. (2011). Evaluation de l’efficacité de la pratique de la chiropratique. Rapport de l'unité U669 de l'Inserm.",
     quote:"Based on this data, Haynes calculated that there would be fewer than <strong>5 cases of stroke per 100,000 patients</strong> who received cervical manipulation by a chiropractor.",
     note:"Inserm report. Cites Haynes (1994) directly. Quote translated from French.",
-    type:"cites_source", cites:"haynes1994", url:"https://www.getcop.org/wp-content/uploads/2019/08/Inserm_RapportThematique_EvaluationEfficaciteChiropratique_2011.pdf", citeIntegrity:null },
+    type:"cites_source", cites:"haynes1994", url:"https://www.getcop.org/wp-content/uploads/2019/08/Inserm_RapportThematique_EvaluationEfficaciteChiropratique_2011.pdf", citeIntegrity:null, citations:2 },
   { id:"rushton2023", label:"Rushton et al.", year:2023, journal:"Journal of Orthopaedic & Sports Physical Therapy",
     fullCite:"Rushton, A. et al. (2023). Journal of Orthopaedic & Sports Physical Therapy, 53(1), 7–22.",
     quote:"the rate is approximately 0.4:100 000 to <strong>5:100 000 patients</strong> (converted for comparison from the work of Nielsen (2017))",
     note:"International IFOMPT cervical framework. Cites Nielsen (2017), which traces back to Haynes (1994) through intermediaries.",
-    type:"cites_source", cites:"nielsen2017", url:"https://www.jospt.org/doi/10.2519/jospt.2022.11147", citeIntegrity:null },
+    type:"cites_source", cites:"nielsen2017", url:"https://www.jospt.org/doi/10.2519/jospt.2022.11147", citeIntegrity:null, citations:131 },
   { id:"vohra2007", label:"Vohra et al.", year:2007, journal:"Pediatrics",
     fullCite:"Vohra, S. et al. (2007). Pediatrics, 119(1), e275–283.",
     quote:"estimates of vertebrobasilar accidents from <strong>1 in 20,000 patients</strong> to 1 per 1 million cervical manipulations",
     note:"Systematic review of pediatric spinal manipulation. Cites both Assendelft (1996) and Haynes (1994).",
-    type:"cites_source", cites:"assendelft1996", url:"http://pediatrics.aappublications.org/cgi/doi/10.1542/peds.2006-1392", citeIntegrity:null },
+    type:"cites_source", cites:"assendelft1996", url:"http://pediatrics.aappublications.org/cgi/doi/10.1542/peds.2006-1392", citeIntegrity:null, citations:221 },
 ];
 
 const extraEdges = [
@@ -802,6 +815,7 @@ function layout() {
 // Get zoomed position for a node
 function zoomedPos(base) {
   if (!base) return null;
+  if (VIEW === "radial") return { x: base.x * radialK, y: base.y * radialK };
   const t = zt(base.time);
   return HORIZONTAL
     ? { x: t, y: base.lane }
@@ -830,6 +844,8 @@ function edgeIsDoubtful(e) {
 let pinnedId = null;
 
 function render() {
+  if (VIEW === "radial") return renderRadial();
+  svg.attr("viewBox", null).style("margin-left", null).style("margin-top", null);
   const L = layout();
   const { positions, years, yearIdx, groups, laneOf, maxLane, LANE_GAP, chartW, chartH } = L;
 
@@ -965,6 +981,221 @@ function render() {
 }
 
 // ============================================================
+// RADIAL VIEW
+// ============================================================
+// The same papers and links on rings instead of a timeline. The inner ring is
+// where each chain ends: the original data, a source that never states the
+// figure, or a paper that gives no reference. Each ring outward is one more
+// citation step. Dot area shows how often the paper has been cited.
+//
+// It follows the timeline's rules with ring in place of year: every paper
+// has its own spoke, a line runs in along the citing paper's spoke to the
+// cited ring, then round that ring into the cited paper, and labels sit on
+// the outer side of the dot, where no line goes.
+let VIEW = "timeline";
+let radialK = 1, radialFitK = 1;   // radial zoom, and the zoom that fits the view
+let radialSize = 0;         // side of the square drawing, before zoom
+
+const depthOf = {};
+const citationDepth = id => depthOf[id] ??= 1 + Math.max(0, ...(parentsOf[id] || []).map(citationDepth));
+nodes.forEach(n => citationDepth(n.id));
+
+// Order round the circle: the lane solver, with ring in place of year.
+const radialLanes = CitationLayout.computeLanes({
+  nodes: nodes.map(n => ({ id: n.id, year: depthOf[n.id] })),
+  edges: edgeList, groupOf: getOutcome, treeGap: ROOT_GAP, anyPosition: true
+});
+window.radialStats = radialLanes;   // radialStats.crossings should be 0
+
+const maxCitations = Math.max(...nodes.map(n => n.citations || 0));
+const MIN_DOT_R = isMobile ? 3.5 : 4, MAX_DOT_R = isMobile ? 20 : 28;
+// Area follows the count. Papers with no count recorded get the smallest dot.
+const dotR = n => Math.max(MIN_DOT_R, MAX_DOT_R * Math.sqrt((n.citations || 0) / maxCitations));
+const ringLabel = d => d === 1 ? "End of chain" : `${d - 1} step${d > 2 ? "s" : ""}`;
+
+const polar = (cx, cy, r, a) => ({ x: cx + r * Math.sin(a), y: cy - r * Math.cos(a) });
+
+function radialLayout() {
+  const LH = LABEL_SIZE + 5, PAD = 6, R_GAP = 8;
+  const order = nodes.map(n => n.id).sort((a, b) => radialLanes.lanes[a] - radialLanes.lanes[b]);
+  const maxDepth = Math.max(...Object.values(depthOf));
+  const reach = id => dotR(nodeMap[id]) + R_GAP + labelWidth(nodeMap[id]);   // dot plus label, outwards
+
+  // Ring spacing. Rings far enough apart that dots on neighbouring rings
+  // can't touch, and an arc clears the labels of papers on inner rings that
+  // it passes.
+  let step = 2 * MAX_DOT_R + 2 * PAD;
+  edgeList.forEach(e => {
+    const sl = radialLanes.lanes[e.source], tl = radialLanes.lanes[e.target], dt = depthOf[e.target];
+    order.forEach(id => {
+      const l = radialLanes.lanes[id];
+      if (l > Math.min(sl, tl) && l < Math.max(sl, tl) && depthOf[id] < dt)
+        step = Math.max(step, (reach(id) + PAD) / (dt - depthOf[id]));
+    });
+  });
+
+  // Inner radius: big enough for the group captions inside it, and for every
+  // pair of neighbouring spokes to sit far enough apart.
+  const innermost = id => Math.min(depthOf[id], ...(parentsOf[id] || []).map(p => depthOf[p]));
+  const half = id => Math.max(dotR(nodeMap[id]), LH / 2);
+  const ringText = 70;   // room at the top for the ring names
+  let r0 = isMobile ? 120 : 150, gaps;
+  for (let tries = 0; tries < 60; tries++) {
+    const r = d => r0 + (d - 1) * step;
+    gaps = order.map((id, i) => {
+      const next = order[(i + 1) % order.length];
+      const rho = r(Math.max(innermost(id), innermost(next)));
+      const treeBreak = radialLanes.lanes[next] - radialLanes.lanes[id] > 1 || i === order.length - 1;
+      let g = (half(id) + half(next) + PAD) / rho;
+      if (i === order.length - 1) g = Math.max(g, (ringText + half(id) + half(next)) / r(1));
+      return { g, treeBreak };
+    });
+    const need = gaps.reduce((s, x) => s + x.g, 0);
+    if (need <= Math.PI * 2 * 0.9) break;   // keep a little spare angle to spread out
+    r0 *= 1.1;
+  }
+  // Share the spare angle out evenly, twice as much at a break between trees.
+  const weight = gaps.reduce((s, x) => s + (x.treeBreak ? 3 : 1), 0);
+  const spare = Math.PI * 2 - gaps.reduce((s, x) => s + x.g, 0);
+  const angle = {};
+  let a = gaps[gaps.length - 1].g / 2 + spare * 1.5 / weight;   // the wrap gap is centred on the top
+  order.forEach((id, i) => {
+    angle[id] = a;
+    a += gaps[i].g + spare * (gaps[i].treeBreak ? 3 : 1) / weight;
+  });
+
+  const radius = d => r0 + (d - 1) * step;
+  const outer = Math.max(...order.map(id => radius(depthOf[id]) + reach(id))) + PAD;
+  const size = 2 * (outer + (isMobile ? 16 : 24));
+  const cx = size / 2, cy = size / 2;
+  const positions = {};
+  order.forEach(id => {
+    const p = polar(cx, cy, radius(depthOf[id]), angle[id]);
+    positions[id] = { x: p.x, y: p.y, angle: angle[id], r: radius(depthOf[id]) };
+  });
+  return { positions, angle, radius, maxDepth, size, cx, cy, r0, step };
+}
+
+// In along the citing paper's spoke to the cited ring, one rounded corner,
+// then round the ring into the cited paper (stopping at its edge).
+function radialEdge(L, s, t) {
+  const S = L.positions[s], T = L.positions[t];
+  const rt = T.r, dir = Math.sign(T.angle - S.angle);
+  const span = Math.abs(T.angle - S.angle);
+  const c = Math.min(CORNER_R, (S.r - rt) / 2, span * rt / 2);
+  const P = (r, a) => polar(L.cx, L.cy, r, a);
+  const p0 = P(S.r, S.angle), p1 = P(rt + c, S.angle), q = P(rt, S.angle), p2 = P(rt, S.angle + dir * c / rt);
+  const end = P(rt, T.angle - dir * (dotR(nodeMap[t]) + 1) / rt);
+  const large = span - (c + dotR(nodeMap[t]) + 1) / rt > Math.PI ? 1 : 0;
+  return `M${p0.x},${p0.y} L${p1.x},${p1.y} Q${q.x},${q.y} ${p2.x},${p2.y} A${rt},${rt} 0 ${large} ${dir > 0 ? 1 : 0} ${end.x},${end.y}`;
+}
+
+function renderRadial() {
+  const L = radialLayout();
+  radialSize = L.size;
+  currentPositions = L.positions;
+  baseLayout = null;
+
+  svg.attr("viewBox", `0 0 ${L.size} ${L.size}`).style("width", "auto");
+  const dim = getChartDimensions();
+  const fit = Math.min(dim.w / L.size, dim.h / L.size);
+  radialFitK = Math.min(1, Math.max(isMobile ? 0.55 : 0.5, fit));
+  radialK = radialFitK;
+  applyRadialZoom();
+
+  // Rings, named at the top where the circle has its gap.
+  gGrid.selectAll("*").remove();
+  for (let d = 1; d <= L.maxDepth; d++) {
+    const r = L.radius(d);
+    gGrid.append("circle").attr("class", "grid-line ring-line").attr("cx", L.cx).attr("cy", L.cy).attr("r", r);
+    gGrid.append("text").attr("class", "year-label ring-label").attr("x", L.cx).attr("y", L.cy - r)
+      .attr("text-anchor", "middle").attr("dominant-baseline", "central").text(ringLabel(d));
+  }
+
+  gEdges.selectAll("*").remove();
+  edgeList.forEach(e => {
+    if (!L.positions[e.source] || !L.positions[e.target]) return;
+    const dead = edgeIsDead(e), doubtful = edgeIsDoubtful(e);
+    const oc = dead ? getOutcome(e.source) : "";
+    const cls = ["edge", dead?"is-dead is-"+oc:"", doubtful?"is-doubtful":""].filter(Boolean).join(" ");
+    gEdges.append("path").attr("d", radialEdge(L, e.source, e.target)).attr("class", cls)
+      .attr("marker-end", dead ? `url(#arr-${oc})` : "url(#arr-normal)")
+      .attr("data-source", e.source).attr("data-target", e.target);
+  });
+
+  gNodes.selectAll("*").remove();
+  nodes.forEach(n => {
+    const p = L.positions[n.id]; if (!p) return;
+    const r = dotR(n);
+    const g = gNodes.append("g").attr("class", "node").attr("data-id", n.id)
+      .attr("transform", `translate(${p.x},${p.y})`)
+      .on("click", () => selectNode(n.id))
+      .on("mouseenter", () => { if (!pinnedId) highlightLineage(n.id); })
+      .on("mouseleave", () => { if (!pinnedId) clearHighlight(); });
+    g.append("circle").attr("r", r + 8).attr("class", "hit");
+    if (n.type === "phantom") g.append("circle").attr("r", r).attr("class", "phantom");
+    else if (n.type === "no_citation") g.append("circle").attr("r", r).attr("class", "dot is-unreferenced");
+    else if (n.id === "haynes1994") {
+      g.append("circle").attr("r", r + 3).attr("class", "ring");
+      g.append("circle").attr("r", r).attr("class", "dot");
+    } else g.append("circle").attr("r", r).attr("class", "dot");
+
+    // Label outwards along the paper's own spoke, turned to read left to
+    // right on the left half of the circle.
+    const badge = figureMark(n);
+    if (showNames || badge) {
+      const deg = p.angle * 180 / Math.PI - 90, flip = p.angle > Math.PI;
+      const off = r + (n.id === "haynes1994" ? 3 : 0) + 8;
+      const label = g.append("text").attr("class", `node-label${n.id==="haynes1994"?" is-source":""}`)
+        .attr("dominant-baseline", "central").attr("text-anchor", flip ? "end" : "start")
+        .attr("transform", flip ? `rotate(${deg + 180}) translate(${-off},0)` : `rotate(${deg}) translate(${off},0)`);
+      if (showNames) label.append("tspan").text(n.label);
+      if (badge) label.append("tspan").attr("class", "figure").attr("dx", showNames ? 2 : 0).text(badge);
+    }
+  });
+
+  // Group brackets: arcs just inside the inner ring, captions inside them.
+  gBrackets.selectAll("*").remove();
+  const rb = L.r0 - 22;
+  computeGroups(radialLanes.lanes).forEach(grp => {
+    if (grp.ids.length < 2) return;
+    const angles = grp.ids.map(id => L.angle[id]);
+    const pad = 10 / rb;
+    const a0 = Math.min(...angles) - pad, a1 = Math.max(...angles) + pad;
+    const P = (r, a) => polar(L.cx, L.cy, r, a);
+    const s = P(rb, a0), e = P(rb, a1), large = a1 - a0 > Math.PI ? 1 : 0;
+    const t0 = P(rb - 6, a0), t1 = P(rb - 6, a1);
+    gBrackets.append("path").attr("class", `group-bracket is-${grp.outcome}${grp.outcome!=="traced"?" is-dead":""}`)
+      .attr("d", `M${t0.x},${t0.y} L${s.x},${s.y} A${rb},${rb} 0 ${large} 1 ${e.x},${e.y} L${t1.x},${t1.y}`);
+    // Text runs clockwise on the top half and anticlockwise on the bottom, so
+    // it always reads upright; either way it sits inside the bracket.
+    const mid = (a0 + a1) / 2, bottom = Math.cos(mid) < 0;
+    const rt = bottom ? rb - 10 : rb - 20;
+    const id = `group-path-${grp.outcome}`;
+    const ta = P(rt, bottom ? a1 : a0), tb = P(rt, bottom ? a0 : a1);
+    gBrackets.append("path").attr("id", id).attr("fill", "none")
+      .attr("d", `M${ta.x},${ta.y} A${rt},${rt} 0 ${large} ${bottom ? 0 : 1} ${tb.x},${tb.y}`);
+    gBrackets.append("text").attr("class", `group-caption is-${grp.outcome}${grp.outcome!=="traced"?" is-dead":""}`)
+      .append("textPath").attr("href", `#${id}`).attr("startOffset", "50%").attr("text-anchor", "middle")
+      .text(groupLabels[grp.outcome] || grp.outcome);
+  });
+
+  buildFindings();
+  if (!isMobile) setupTimeZoom();
+  // Start centred on the drawing.
+  chartEl.scrollLeft = (chartEl.scrollWidth - chartEl.clientWidth) / 2;
+  chartEl.scrollTop = (chartEl.scrollHeight - chartEl.clientHeight) / 2;
+}
+
+function applyRadialZoom() {
+  const s = radialSize * radialK;
+  const dim = getChartDimensions();
+  svg.attr("width", s).attr("height", s)
+     .style("margin-left", s < dim.w ? `${(dim.w - s) / 2}px` : null)
+     .style("margin-top", s < dim.h ? `${(dim.h - s) / 2}px` : null);
+}
+
+// ============================================================
 // TIME ZOOM (anisotropic: lane axis fixed, time axis zoomable)
 // ============================================================
 let zoomBeh = null;
@@ -977,6 +1208,7 @@ function setupTimeZoom() {
   zoomBeh = d3.zoom()
     .scaleExtent([0.5, 4])
     .on("zoom", e => {
+      if (VIEW === "radial") { radialK = radialFitK * e.transform.k; applyRadialZoom(); return; }
       timeK = e.transform.k;
       timePan = 0; // Pan handled by native scroll, not d3
       applyTimeZoom();
@@ -1097,6 +1329,7 @@ function selectNode(id) {
   h += `<h3>${n.label} (${n.year})</h3>`;
   h += `<p class="journal">${n.journal}</p>`;
   h += `<p class="status${isBad?" is-bad":""}">${statusLabel}</p>`;
+  h += `<p class="cited-count">${n.citations == null ? "Not tracked by Google Scholar" : n.citations === 0 ? "Not cited yet" : `Cited ${n.citations.toLocaleString()} time${n.citations === 1 ? "" : "s"}`}</p>`;
 
   if (statedFigure[id]) h += `<p class="figure-note">States: ${statedFigure[id]}</p>`;
   if (unitConversion[id]) h += `<p class="unit-note">Unit conversion: ${unitConversion[id]} (manipulations, not patients)</p>`;
@@ -1126,7 +1359,7 @@ function selectNode(id) {
     const base = currentPositions[id];
     const zp = zoomedPos(base);
     const rect = chartEl.getBoundingClientRect();
-    let cx = rect.left + zp.x + 20;
+    let cx = rect.left + zp.x - chartEl.scrollLeft + 20;
     let cy = rect.top + zp.y - chartEl.scrollTop + 20;
     cx = Math.min(cx, window.innerWidth - 380);
     cy = Math.max(cy, 12);
@@ -1163,6 +1396,19 @@ document.querySelectorAll("[data-stop]").forEach(el => {
 // ============================================================
 // CONTROLS
 // ============================================================
+// View: timeline or radial
+document.querySelectorAll("[data-view]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    VIEW = btn.dataset.view;
+    document.querySelectorAll("[data-view]").forEach(b => b.setAttribute("aria-pressed", b === btn));
+    document.querySelector(".page").classList.toggle("is-radial", VIEW === "radial");
+    svg.attr("aria-label", VIEW === "radial"
+      ? "Citation map of publications repeating the 1 in 20,000 figure, arranged in rings by citation steps from where each chain ends"
+      : "Citation map of publications repeating the 1 in 20,000 figure, arranged by year");
+    closeCard(); render();
+  });
+});
+
 // Orientation
 document.querySelectorAll("[data-orientation]").forEach(btn => {
   btn.addEventListener("click", () => {

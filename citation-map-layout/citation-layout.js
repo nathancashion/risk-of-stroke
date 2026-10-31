@@ -91,11 +91,14 @@
    *        searched exhaustively (7! = 5040 orders); larger ones start in year
    *        order and improve by moving one sibling at a time
    * @param {number}   [o.passes=5]    search passes (it usually settles in 2-3)
+   * @param {boolean}  [o.anyPosition=false] when moving a paper to another
+   *        block, also try it at every position there, not just in year
+   *        order (the radial view uses this)
    * @returns {{lanes:Object<string,number>, laneCount:number, crossings:number}}
    *        Lane numbers start at 0 and can be fractional at tree gaps. Map
    *        them to pixels with lane / (laneCount - 1) across the lane axis.
    */
-  function computeLanes({ nodes, edges, groupOf = () => "", treeGap = 1, maxPermute = 7, passes = 5 }) {
+  function computeLanes({ nodes, edges, groupOf = () => "", treeGap = 1, maxPermute = 7, passes = 5, anyPosition = false }) {
     const byId = new Map(nodes.map(n => [n.id, n]));
     const live = liveEdges(nodes, edges);
     const parents = {}, children = {};
@@ -178,10 +181,22 @@
           const prevKids = kids[prev].slice(), nextKids = (kids[p] || []).slice();
           kids[prev].splice(kids[prev].indexOf(n.id), 1);
           treeParent[n.id] = p;
-          (kids[p] = kids[p] || []).push(n.id);
-          kids[p].sort(byYear);
-          const c = cost();
-          if (c < best) { best = c; improved = true; }
+          // Year order among its new siblings first. With anyPosition, also
+          // every other position: the radial view needs this to untie a few
+          // knots. The timeline keeps year order so its layout stays as it was.
+          const sorted = nextKids.concat(n.id).sort(byYear);
+          const trials = [sorted];
+          if (anyPosition) for (let i = 0; i <= nextKids.length; i++) {
+            const t = nextKids.slice(); t.splice(i, 0, n.id);
+            if (t.some((id, k) => id !== sorted[k])) trials.push(t);
+          }
+          let moved = null;
+          for (const t of trials) {
+            kids[p] = t;
+            const c = cost();
+            if (c < best) { best = c; moved = t; }
+          }
+          if (moved) { kids[p] = moved; improved = true; }
           else { treeParent[n.id] = prev; kids[prev] = prevKids; kids[p] = nextKids; }
         });
       });
@@ -270,6 +285,8 @@
    * Check the drawn map in the browser. Everything is measured in screen
    * pixels, so zoom and transforms don't matter. A good layout returns
    * ok: true with every list empty.
+   * Pass rotatedLabels: true where labels are turned (the radial view), so
+   * each label is tested as its own rotated box.
    */
   function checkLayout({
     nodeSelector = ".node",
@@ -279,7 +296,8 @@
     nodeId = el => el.dataset.id,
     edgeEnds = el => [el.dataset.source, el.dataset.target],
     container = null,
-    step = 2
+    step = 2,
+    rotatedLabels = false
   } = {}) {
     const scope = container || document;
     const visible = el => {
@@ -303,10 +321,11 @@
       }
     });
     const labels = [...scope.querySelectorAll(labelSelector)].filter(visible)
-      .map(l => ({ id: nodeId(l.closest(nodeSelector)), b: l.getBoundingClientRect() }));
+      .map(l => ({ id: nodeId(l.closest(nodeSelector)), b: l.getBoundingClientRect(), q: rotatedLabels ? labelQuad(l) : null }));
     const svgBox = (scope.querySelector(nodeSelector) || {}).ownerSVGElement?.getBoundingClientRect();
 
     const out = { linesThroughDots: [], overlappingDots: [], overlappingLabels: [], linesThroughLabels: [], labelsOnDots: [], labelsCutOff: [] };
+    if (rotatedLabels) return checkQuads(out, dots, pts, labels, svgBox);
     dots.forEach(d => {
       const hit = pts.find(p => Math.hypot(p.x - d.x, p.y - d.y) < d.r && p.s !== d.id && p.t !== d.id);
       if (hit) out.linesThroughDots.push(`${d.id} (line ${hit.s} -> ${hit.t})`);
@@ -326,6 +345,48 @@
         if (d.id !== id && d.x > b.left - d.r && d.x < b.right + d.r && d.y > b.top - d.r && d.y < b.bottom + d.r) out.labelsOnDots.push(`${id} on ${d.id}`);
       });
       if (svgBox && (b.left < svgBox.left - 1 || b.top < svgBox.top - 1 || b.right > svgBox.right + 1 || b.bottom > svgBox.bottom + 1)) out.labelsCutOff.push(id);
+    });
+    out.ok = Object.values(out).every(v => !v.length);
+    return out;
+  }
+
+  // Turned labels (the radial view): test each label's own rotated box, not
+  // the upright box around it, which would overlap its neighbours'.
+  function labelQuad(el) {
+    const b = el.getBBox(), m = el.getScreenCTM();
+    const x0 = b.x + 1, x1 = b.x + b.width - 1, y0 = b.y + 2, y1 = b.y + b.height - 2;
+    return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([x, y]) => ({ x: m.a * x + m.c * y + m.e, y: m.b * x + m.d * y + m.f }));
+  }
+  const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+  function inQuad(p, q) {
+    const s = q.map((v, i) => cross(v, q[(i + 1) % 4], p));
+    return s.every(v => v > 0) || s.every(v => v < 0);
+  }
+  function distToQuad(p, q) {
+    if (inQuad(p, q)) return 0;
+    return Math.min(...q.map((a, i) => {
+      const b = q[(i + 1) % 4], dx = b.x - a.x, dy = b.y - a.y;
+      const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
+      return Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy);
+    }));
+  }
+  function quadsOverlap(a, b) {
+    for (const q of [a, b]) for (let i = 0; i < 4; i++) {
+      const p1 = q[i], p2 = q[(i + 1) % 4], nx = p2.y - p1.y, ny = p1.x - p2.x;
+      const pa = a.map(v => v.x * nx + v.y * ny), pb = b.map(v => v.x * nx + v.y * ny);
+      if (Math.max(...pa) <= Math.min(...pb) || Math.max(...pb) <= Math.min(...pa)) return false;
+    }
+    return true;
+  }
+  function checkQuads(out, dots, pts, labels, svgBox) {
+    for (let i = 0; i < labels.length; i++)
+      for (let j = i + 1; j < labels.length; j++)
+        if (quadsOverlap(labels[i].q, labels[j].q)) out.overlappingLabels.push(`${labels[i].id} / ${labels[j].id}`);
+    labels.forEach(({ id, q }) => {
+      const hit = pts.find(p => inQuad(p, q));
+      if (hit) out.linesThroughLabels.push(`${id} (line ${hit.s} -> ${hit.t})`);
+      dots.forEach(d => { if (d.id !== id && distToQuad(d, q) < d.r) out.labelsOnDots.push(`${id} on ${d.id}`); });
+      if (svgBox && q.some(v => v.x < svgBox.left - 1 || v.y < svgBox.top - 1 || v.x > svgBox.right + 1 || v.y > svgBox.bottom + 1)) out.labelsCutOff.push(id);
     });
     out.ok = Object.values(out).every(v => !v.length);
     return out;
