@@ -68,6 +68,18 @@ downwards (vertical) unless `newestFirst` is true. Measure label widths with
 the real font (`600 15px "IBM Plex Sans Condensed"`) and wait for it to load
 first (`document.fonts.load(...)`); the browser doesn't fetch it until asked.
 
+## Papers that only list other papers
+
+Some papers name other papers without citing them for the figure, for
+example in a review table (Nunn et al. 2025). Add those links to
+`extraEdges` with `type: "listed"`. They are left out of the lanes, the
+outcome groups and the crossing count, and the page draws them as dotted
+lines only while one of their two papers is hovered or selected (the card
+lists them under "Also lists" / "Also listed by"). Use this when the paper's
+other links would cross the layout; keep its `cites` to the source its own
+figure rests on. `verify-layout.js`, `checkLayout()` and
+`make_summary_charts.py` all ignore listed links.
+
 ## Checking your work (do this every time)
 
 1. **Data check, no browser needed:**

@@ -32,7 +32,7 @@ if (s < 0 || x < 0 || e < 0) { console.error("Couldn't find the nodes / extraEdg
 const { nodes, extraEdges } = vm.runInNewContext(html.slice(s, e) + "\n;({ nodes, extraEdges });");
 const edges = [];
 nodes.forEach(n => { if (n.cites) edges.push({ source: n.id, target: n.cites }); });
-extraEdges.forEach(q => edges.push({ source: q.source, target: q.target }));
+extraEdges.forEach(q => { if (q.type !== "listed") edges.push({ source: q.source, target: q.target }); });
 const byId = Object.fromEntries(nodes.map(n => [n.id, n]));
 const parents = {};
 edges.forEach(q => (parents[q.source] = parents[q.source] || []).push(q.target));
