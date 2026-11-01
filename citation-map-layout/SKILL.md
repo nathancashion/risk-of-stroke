@@ -135,6 +135,16 @@ To check it, switch to Radial for both name settings and run
 `CitationLayout.checkLayout({ rotatedLabels: true })`. Each call must
 return `ok: true`.
 
+**The centred view** (View → Centred) is the same drawing with Haynes
+(1994) in the middle. Rings count steps from Haynes; chains that never
+reach it start on ring 1 in their own part of the circle. Lines into
+Haynes run straight in, with no arrowheads. Other lines are curves that
+leave along the citing paper's spoke and meet the cited ring along the
+ring, never dipping inside it, so they clear the same names the arcs do.
+Its lane order is `centredStats` (`crossings` must be 0). `checkLayout`
+doesn't test curves crossing each other, so after changing the curve, also
+run the page's `lineCrossings()` in the console; it must return `[]`.
+
 ## Mistakes that caused the earlier problems
 
 - **"Compact" lanes** (papers in different years sharing a lane): lines run

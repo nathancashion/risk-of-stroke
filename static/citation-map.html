@@ -166,6 +166,7 @@
   button:focus-visible, summary:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
   .hint { margin: 0; font-size: 12.5px; color: var(--muted); }
   .page.is-radial .timeline-only, .page:not(.is-radial) .radial-only { display: none; }
+  .page.is-centred .rings-only, .page:not(.is-centred) .centred-only { display: none; }
 
   /* --- map --- */
   .grid-line { stroke: var(--grid); stroke-width: 0.5; }
@@ -346,7 +347,8 @@
           <li class="is-text"><span><span class="figure-sample">*</span> beside a name: the paper misquotes its source (its card gives the figure it states)</span></li>
         </ul>
         <p class="aside timeline-only">Arrows point from a paper to the source it cites. Papers that cite the same source sit together, to its right.</p>
-        <p class="aside radial-only">The inner ring is where each chain ends. Each ring outward is one more citation step from there. Arrows point from a paper to the source it cites.</p>
+        <p class="aside radial-only centred-only">Haynes (1994) is at the centre. Each ring outward is one more citation step from it. Chains that never reach Haynes start on the first ring, in their own part of the circle. Arrows point from a paper to the source it cites.</p>
+        <p class="aside radial-only rings-only">The inner ring is where each chain ends. Each ring outward is one more citation step from there. Arrows point from a paper to the source it cites.</p>
       </details>
     </div>
 
@@ -357,6 +359,7 @@
           <div class="seg" role="group" aria-labelledby="view-label">
             <button type="button" data-view="timeline" aria-pressed="true">Timeline</button>
             <button type="button" data-view="radial" aria-pressed="false">Radial</button>
+            <button type="button" data-view="centred" aria-pressed="false">Centred</button>
           </div>
         </div>
         <div class="control timeline-only">
@@ -838,7 +841,7 @@ function layout() {
 // Get zoomed position for a node
 function zoomedPos(base) {
   if (!base) return null;
-  if (VIEW === "radial") return { x: base.x * radialK, y: base.y * radialK };
+  if (VIEW !== "timeline") return { x: base.x * radialK, y: base.y * radialK };
   const t = zt(base.time);
   return HORIZONTAL
     ? { x: t, y: base.lane }
@@ -867,7 +870,7 @@ function edgeIsDoubtful(e) {
 let pinnedId = null;
 
 function render() {
-  if (VIEW === "radial") return renderRadial();
+  if (VIEW !== "timeline") return renderRadial();
   svg.attr("viewBox", null).style("margin-left", null).style("margin-top", null);
   const L = layout();
   const { positions, years, yearIdx, groups, laneOf, maxLane, LANE_GAP, chartW, chartH } = L;
@@ -1022,6 +1025,10 @@ function render() {
 // has its own spoke, a line runs in along the citing paper's spoke to the
 // cited ring, then round that ring into the cited paper, and labels sit on
 // the outer side of the dot, where no line goes.
+//
+// The centred view is the same drawing with Haynes (1994) in the middle:
+// rings count steps from Haynes, and lines into Haynes run straight in.
+// Chains that never reach Haynes keep their own end on the first ring.
 let VIEW = "timeline";
 let radialK = 1, radialFitK = 1;   // radial zoom, and the zoom that fits the view
 let radialSize = 0;         // side of the square drawing, before zoom
@@ -1036,18 +1043,55 @@ const radialLanes = CitationLayout.computeLanes({
   edges: edgeList, groupOf: getOutcome, treeGap: ROOT_GAP, anyPosition: true
 });
 window.radialStats = radialLanes;   // radialStats.crossings should be 0
+window.depthOfRings = depthOf;
+
+const CENTRE = "haynes1994";
+const centredDepthOf = {};
+const centredDepth = id => centredDepthOf[id] ??= id === CENTRE ? 0
+  : getOutcome(id) !== "traced" ? depthOf[id]
+  : 1 + Math.max(...(parentsOf[id] || []).filter(p => getOutcome(p) === "traced").map(centredDepth));
+nodes.forEach(n => centredDepth(n.id));
+const centredLanes = CitationLayout.computeLanes({
+  nodes: nodes.map(n => ({ id: n.id, year: centredDepthOf[n.id] })),
+  edges: edgeList, groupOf: getOutcome, treeGap: ROOT_GAP, anyPosition: true
+});
+window.centredStats = centredLanes;   // centredStats.crossings should be 0
+
+// Console check for the drawn lines (checkLayout doesn't test lines against
+// each other). Lists pairs that cross; lines sharing a paper are skipped.
+window.lineCrossings = () => {
+  const paths = [...document.querySelectorAll("path.edge")].map(p => {
+    const len = p.getTotalLength(), n = Math.max(2, Math.ceil(len / 4));
+    return { s: p.dataset.source, t: p.dataset.target, pts: d3.range(n + 1).map(i => p.getPointAtLength(len * i / n)) };
+  });
+  const side = (p, q, r) => (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+  const cross = (a, b, c, d) => side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0;
+  const found = [];
+  paths.forEach((A, i) => paths.slice(i + 1).forEach(B => {
+    if ([A.s, A.t].some(id => id === B.s || id === B.t)) return;
+    const hit = A.pts.slice(1).some((a, k) => B.pts.slice(1).some((b, j) => cross(A.pts[k], a, B.pts[j], b)));
+    if (hit) found.push(`${A.s}→${A.t} × ${B.s}→${B.t}`);
+  }));
+  return found;
+};
 
 const maxCitations = Math.max(...nodes.map(n => n.citations || 0));
 const MIN_DOT_R = isMobile ? 3.5 : 4, MAX_DOT_R = isMobile ? 20 : 28;
 // Area follows the count. Papers with no count recorded get the smallest dot.
 const dotR = n => Math.max(MIN_DOT_R, MAX_DOT_R * Math.sqrt((n.citations || 0) / maxCitations));
-const ringLabel = d => d === 1 ? "End of chain" : `${d - 1} step${d > 2 ? "s" : ""}`;
+const ringLabel = d => VIEW === "centred" ? `${d} step${d > 1 ? "s" : ""}`
+  : d === 1 ? "End of chain" : `${d - 1} step${d > 2 ? "s" : ""}`;
 
 const polar = (cx, cy, r, a) => ({ x: cx + r * Math.sin(a), y: cy - r * Math.cos(a) });
 
 function radialLayout() {
   const LH = LABEL_SIZE + 5, PAD = 6, R_GAP = 8;
-  const order = nodes.map(n => n.id).sort((a, b) => radialLanes.lanes[a] - radialLanes.lanes[b]);
+  const centred = VIEW === "centred";
+  const depthOf = centred ? centredDepthOf : window.depthOfRings;
+  const radialLanes = centred ? centredLanes : window.radialStats;
+  const centre = centred ? CENTRE : null;
+  const order = nodes.map(n => n.id).filter(id => id !== centre)
+    .sort((a, b) => radialLanes.lanes[a] - radialLanes.lanes[b]);
   const maxDepth = Math.max(...Object.values(depthOf));
   const reach = id => dotR(nodeMap[id]) + R_GAP + labelWidth(nodeMap[id]);   // dot plus label, outwards
 
@@ -1056,6 +1100,7 @@ function radialLayout() {
   // it passes.
   let step = 2 * MAX_DOT_R + 2 * PAD;
   edgeList.forEach(e => {
+    if (e.target === centre) return;   // straight in, along its own spoke
     const sl = radialLanes.lanes[e.source], tl = radialLanes.lanes[e.target], dt = depthOf[e.target];
     order.forEach(id => {
       const l = radialLanes.lanes[id];
@@ -1066,10 +1111,12 @@ function radialLayout() {
 
   // Inner radius: big enough for the group captions inside it, and for every
   // pair of neighbouring spokes to sit far enough apart.
-  const innermost = id => Math.min(depthOf[id], ...(parentsOf[id] || []).map(p => depthOf[p]));
+  const innermost = id => Math.min(depthOf[id], ...(parentsOf[id] || []).filter(p => p !== centre).map(p => depthOf[p]));
   const half = id => Math.max(dotR(nodeMap[id]), LH / 2);
   const ringText = 70;   // room at the top for the ring names
   let r0 = isMobile ? 120 : 150, gaps;
+  // The centre paper and its name, written level, need to fit inside ring 1.
+  if (centre) r0 = Math.max(r0, dotR(nodeMap[centre]) + 3 + R_GAP + labelWidth(nodeMap[centre]) + PAD + MAX_DOT_R);
   for (let tries = 0; tries < 60; tries++) {
     const r = d => r0 + (d - 1) * step;
     gaps = order.map((id, i) => {
@@ -1103,7 +1150,13 @@ function radialLayout() {
     const p = polar(cx, cy, radius(depthOf[id]), angle[id]);
     positions[id] = { x: p.x, y: p.y, angle: angle[id], r: radius(depthOf[id]) };
   });
-  return { positions, angle, radius, maxDepth, size, cx, cy, r0, step };
+  if (centre) {
+    // Its name goes on whichever side has fewer lines coming in.
+    const inAngles = (childrenOf[centre] || []).concat(listedByOf[centre] || []).map(id => angle[id]).filter(a => a != null);
+    const right = inAngles.filter(a => a < Math.PI).length <= inAngles.filter(a => a >= Math.PI).length;
+    positions[centre] = { x: cx, y: cy, angle: right ? Math.PI / 2 : Math.PI * 1.5, r: 0, level: true };
+  }
+  return { positions, angle, radius, maxDepth, size, cx, cy, r0, step, lanes: radialLanes.lanes, centre };
 }
 
 // Along the citing paper's spoke to the cited ring (inwards for citations;
@@ -1111,6 +1164,12 @@ function radialLayout() {
 // into the cited paper (stopping at its edge).
 function radialEdge(L, s, t) {
   const S = L.positions[s], T = L.positions[t];
+  if (T.r === 0) {   // into the centre: straight in along the spoke
+    const P = (r, a) => polar(L.cx, L.cy, r, a);
+    const p0 = P(S.r, S.angle), end = P(dotR(nodeMap[t]) + (t === "haynes1994" ? 3 : 0) + 1, S.angle);
+    return `M${p0.x},${p0.y} L${end.x},${end.y}`;
+  }
+  if (L.centre) return curvedEdge(L, s, t);
   const rt = T.r, dir = Math.sign(T.angle - S.angle);
   const span = Math.abs(T.angle - S.angle);
   const k = S.r >= rt ? 1 : -1;
@@ -1120,6 +1179,23 @@ function radialEdge(L, s, t) {
   const end = P(rt, T.angle - dir * (dotR(nodeMap[t]) + 1) / rt);
   const large = span - (c + dotR(nodeMap[t]) + 1) / rt > Math.PI ? 1 : 0;
   return `M${p0.x},${p0.y} L${p1.x},${p1.y} Q${q.x},${q.y} ${p2.x},${p2.y} A${rt},${rt} 0 ${large} ${dir > 0 ? 1 : 0} ${end.x},${end.y}`;
+}
+
+// The centred view's curve: it leaves along the citing paper's spoke (so its
+// name, further out on that spoke, stays clear), sweeps round, and meets the
+// cited ring along the ring, so it never runs over the cited paper's name.
+// It never dips inside the cited ring, which is what keeps it off the names
+// of papers on inner rings, the same as the arc it replaces.
+function curvedEdge(L, s, t) {
+  const S = L.positions[s], T = L.positions[t];
+  const rt = T.r, dir = Math.sign(T.angle - S.angle) || 1;
+  const span = Math.abs(T.angle - S.angle) - (dotR(nodeMap[t]) + 1) / rt;
+  const pts = d3.range(0, 33).map(i => {
+    const u = i / 32;
+    const p = polar(L.cx, L.cy, rt + (S.r - rt) * (1 - u) ** 2, S.angle + dir * span * u * u);
+    return `${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+  });
+  return `M${pts.join(" L")}`;
 }
 
 function renderRadial() {
@@ -1150,15 +1226,18 @@ function renderRadial() {
     const dead = edgeIsDead(e), doubtful = edgeIsDoubtful(e);
     const oc = dead ? getOutcome(e.source) : "";
     const cls = ["edge", dead?"is-dead is-"+oc:"", doubtful?"is-doubtful":""].filter(Boolean).join(" ");
+    // No arrowheads on lines into the centre: they would pile up there, and
+    // every one of them ends at the same paper.
+    const intoCentre = e.target === L.centre;
     gEdges.append("path").attr("d", radialEdge(L, e.source, e.target)).attr("class", cls)
-      .attr("marker-end", dead ? `url(#arr-${oc})` : "url(#arr-normal)")
+      .attr("marker-end", intoCentre ? null : dead ? `url(#arr-${oc})` : "url(#arr-normal)")
       .attr("data-source", e.source).attr("data-target", e.target);
   });
   gListed.selectAll("*").remove();
   listedEdges.forEach(e => {
     if (!L.positions[e.source] || !L.positions[e.target]) return;
     gListed.append("path").attr("d", radialEdge(L, e.source, e.target)).attr("class", "listed-edge")
-      .attr("marker-end", "url(#arr-listed)").attr("data-source", e.source).attr("data-target", e.target);
+      .attr("marker-end", e.target === L.centre ? null : "url(#arr-listed)").attr("data-source", e.source).attr("data-target", e.target);
   });
 
   gNodes.selectAll("*").remove();
@@ -1182,11 +1261,12 @@ function renderRadial() {
     // right on the left half of the circle.
     const badge = figureMark(n);
     if (showNames || badge) {
-      const deg = p.angle * 180 / Math.PI - 90, flip = p.angle > Math.PI;
+      const deg = p.level ? 0 : p.angle * 180 / Math.PI - 90, flip = p.angle > Math.PI;
       const off = r + (n.id === "haynes1994" ? 3 : 0) + 8;
       const label = g.append("text").attr("class", `node-label${n.id==="haynes1994"?" is-source":""}`)
         .attr("dominant-baseline", "central").attr("text-anchor", flip ? "end" : "start")
-        .attr("transform", flip ? `rotate(${deg + 180}) translate(${-off},0)` : `rotate(${deg}) translate(${off},0)`);
+        .attr("transform", p.level ? `translate(${flip ? -off : off},0)`
+          : flip ? `rotate(${deg + 180}) translate(${-off},0)` : `rotate(${deg}) translate(${off},0)`);
       if (showNames) label.append("tspan").text(n.label);
       if (badge) label.append("tspan").attr("class", "figure").attr("dx", showNames ? 2 : 0).text(badge);
     }
@@ -1195,9 +1275,10 @@ function renderRadial() {
   // Group brackets: arcs just inside the inner ring, captions inside them.
   gBrackets.selectAll("*").remove();
   const rb = L.r0 - 22;
-  computeGroups(radialLanes.lanes).forEach(grp => {
+  computeGroups(L.lanes).forEach(grp => {
     if (grp.ids.length < 2) return;
-    const angles = grp.ids.map(id => L.angle[id]);
+    if (L.centre && grp.outcome === "traced") return;   // its lines all run to the centre
+    const angles = grp.ids.filter(id => id !== L.centre).map(id => L.angle[id]);
     const pad = 10 / rb;
     const a0 = Math.min(...angles) - pad, a1 = Math.max(...angles) + pad;
     const P = (r, a) => polar(L.cx, L.cy, r, a);
@@ -1246,7 +1327,7 @@ function setupTimeZoom() {
   zoomBeh = d3.zoom()
     .scaleExtent([0.5, 4])
     .on("zoom", e => {
-      if (VIEW === "radial") { radialK = radialFitK * e.transform.k; applyRadialZoom(); return; }
+      if (VIEW !== "timeline") { radialK = radialFitK * e.transform.k; applyRadialZoom(); return; }
       timeK = e.transform.k;
       timePan = 0; // Pan handled by native scroll, not d3
       applyTimeZoom();
@@ -1453,10 +1534,12 @@ document.querySelectorAll("[data-view]").forEach(btn => {
   btn.addEventListener("click", () => {
     VIEW = btn.dataset.view;
     document.querySelectorAll("[data-view]").forEach(b => b.setAttribute("aria-pressed", b === btn));
-    document.querySelector(".page").classList.toggle("is-radial", VIEW === "radial");
-    svg.attr("aria-label", VIEW === "radial"
-      ? "Citation map of publications repeating the 1 in 20,000 figure, arranged in rings by citation steps from where each chain ends"
-      : "Citation map of publications repeating the 1 in 20,000 figure, arranged by year");
+    document.querySelector(".page").classList.toggle("is-radial", VIEW !== "timeline");
+    document.querySelector(".page").classList.toggle("is-centred", VIEW === "centred");
+    svg.attr("aria-label", {
+      radial: "Citation map of publications repeating the 1 in 20,000 figure, arranged in rings by citation steps from where each chain ends",
+      centred: "Citation map of publications repeating the 1 in 20,000 figure, with Haynes (1994) at the centre and rings by citation steps from it",
+    }[VIEW] || "Citation map of publications repeating the 1 in 20,000 figure, arranged by year");
     closeCard(); render();
   });
 });
